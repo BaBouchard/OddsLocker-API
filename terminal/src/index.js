@@ -249,11 +249,12 @@ app.get('/', (_req, res) => {
           </table>
         </div>
         <p class="foot">
-          <a href="/health">/health</a> · <a href="/export/csv" download>Export CSV</a> · Ingest: <code>POST /ingest</code> <code>{ "sourceId", "data" }</code> · ws://localhost:${PORT}
+          <a href="/health">/health</a> · <a href="/export/csv" download>Export CSV</a> · Ingest: <code>POST /ingest</code> <code>{ "sourceId", "data" }</code> · ws://localhost: (local) · wss://oddslocker-api-production.up.railway.app (hosted)
         </p>
       </div>
       <script>
-        const ws = new WebSocket('ws://' + location.host)
+        const wsProtocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const ws = new WebSocket(wsProtocol + location.host)
         const tbody = document.querySelector('#oddsTable tbody')
         const totalOddsEl = document.getElementById('totalOdds')
         function escapeHtml(s) {
@@ -369,5 +370,5 @@ wss.on('connection', (ws, req) => {
 httpServer.listen(PORT, () => {
   console.log(`[Terminal] HTTP + WebSocket on port ${PORT}`)
   console.log(`[Terminal] Ingest: POST http://localhost:${PORT}/ingest  body: { sourceId, data }`)
-  console.log(`[Terminal] Live feed: ws://localhost:${PORT}`)
+  console.log(`[Terminal] Live feed: ws://localhost: (local) · wss://oddslocker-api-production.up.railway.app (hosted)`)
 })
