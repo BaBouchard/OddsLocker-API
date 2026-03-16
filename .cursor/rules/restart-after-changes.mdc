@@ -1,0 +1,18 @@
+---
+description: After code/config changes, automatically restart affected services (scraper and/or terminal)
+alwaysApply: true
+---
+
+# Restart affected operations after changes
+
+After making any change that affects runtime behavior, **automatically restart the affected operations** so the change is in effect. Do not wait for the user to ask.
+
+- **Scraper** (port 8765): Restart when changing anything under `src/` (adapters, index, broadcast, push, schema, etc.), `.env`, or root config that the scraper uses.
+- **Terminal** (port 3000): Restart when changing anything under `terminal/` (e.g. `terminal/src/index.js`).
+- **Both**: Restart both when in doubt or when change could affect either (e.g. shared schema, env, or multiple areas).
+
+Restart by:
+1. Killing the process on the relevant port (e.g. `lsof -ti :8765 | xargs kill`, `lsof -ti :3000 | xargs kill`).
+2. Starting the service again in the background (e.g. `cd /Users/blakebouchard/live-odds-ingestion && npm start` for scraper, `cd .../terminal && npm start` for terminal).
+
+Run the restart in the same turn as the edit when possible, and briefly confirm in your reply that the affected service(s) were restarted.

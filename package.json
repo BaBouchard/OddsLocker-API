@@ -1,0 +1,18 @@
+{
+  "name": "live-odds-ingestion",
+  "version": "1.0.0",
+  "description": "High-speed WebSocket service to ingest live game odds from a sportsbook for arbitrage integration",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

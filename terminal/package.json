@@ -1,0 +1,19 @@
+{
+  "name": "live-odds-terminal",
+  "version": "1.0.0",
+  "description": "Central aggregator: receives odds from scrapers (VPS), broadcasts merged feed to website clients",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
