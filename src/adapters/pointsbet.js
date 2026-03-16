@@ -73,11 +73,11 @@ export class PointsBetAdapter extends BaseAdapter {
       Accept: 'application/json',
       'Accept-Language': 'en-US,en;q=0.9',
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
-      Referer: 'https://www.pointsbet.com/',
-      Origin: 'https://www.pointsbet.com',
+      Referer: 'https://on.pointsbet.ca/',
+      Origin: 'https://on.pointsbet.ca',
       'Sec-Fetch-Dest': 'empty',
       'Sec-Fetch-Mode': 'cors',
-      'Sec-Fetch-Site': 'same-site',
+      'Sec-Fetch-Site': 'cross-site',
       ...this.config.fetchOptions?.headers
     }
     if (cookie) headers.Cookie = cookie
