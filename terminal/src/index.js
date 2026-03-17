@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3000
+const LOGIN_PASSWORD = process.env.TERMINAL_LOGIN_PASSWORD || ''
 
 // Same sort as scraper broadcast: event_id then market (moneyline, spread, total)
 const MARKET_ORDER = { moneyline: 0, spread: 1, total: 2 }
@@ -28,7 +29,7 @@ const lastBooksBySource = {}
 const viewers = new Set()
 
 const VPS_SLOTS = ['vps1', 'vps2', 'vps3', 'vps4', 'vps5', 'vps6']
-const KNOWN_SPORTSBOOKS = ['BetRivers', 'FanDuel', 'Bovada', 'PointsBet', 'BetMGM']
+const KNOWN_SPORTSBOOKS = ['BetRivers', 'FanDuel', 'Bovada', 'PointsBet', 'BetMGM', '888sport']
 
 function sourceToSlot(sourceId) {
   if (!sourceId) return null
@@ -89,9 +90,19 @@ function buildOddsCsv(entries) {
 
 const app = express()
 app.use(express.json({ limit: '2mb' }))
+app.use(express.urlencoded({ extended: false }))
 app.use('/assets', express.static(path.join(__dirname, '../public')))
 
+function isAuthed(req) {
+  if (!LOGIN_PASSWORD) return true
+  const cookie = req.headers.cookie || ''
+  return cookie.split(';').some((p) => p.trim() === 'ol_auth=1')
+}
+
 app.post('/ingest', (req, res) => {
+  if (!isAuthed(req)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
   const { sourceId, data } = req.body || {}
   if (!sourceId || !Array.isArray(data)) {
     return res.status(400).json({ error: 'Missing sourceId or data array' })
@@ -111,7 +122,41 @@ app.post('/ingest', (req, res) => {
   res.json({ ok: true, sources: Object.keys(lastBySource).length })
 })
 
-app.get('/', (_req, res) => {
+app.get('/', (req, res) => {
+  if (LOGIN_PASSWORD && !isAuthed(req)) {
+    return res.type('html').send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>OddsLocker Login</title>
+      <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: #0f0f12; color: #e4e4e7; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .card { background: #18181c; border: 1px solid #27272f; border-radius: 12px; padding: 1.75rem 1.5rem; width: 100%; max-width: 360px; box-shadow: 0 18px 45px rgba(0,0,0,0.55); }
+        h1 { margin: 0 0 0.75rem 0; font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+        p { margin: 0 0 1.25rem 0; font-size: 0.9rem; color: #a1a1aa; }
+        label { display: block; font-size: 0.8rem; margin-bottom: 0.25rem; color: #d4d4d8; }
+        input[type="password"] { width: 100%; padding: 0.5rem 0.6rem; border-radius: 8px; border: 1px solid #27272f; background: #09090b; color: #e4e4e7; font-size: 0.9rem; }
+        input[type="password"]:focus { outline: none; border-color: #a78bfa; box-shadow: 0 0 0 1px rgba(167,139,250,0.35); }
+        button { margin-top: 0.9rem; width: 100%; padding: 0.55rem 0.6rem; border-radius: 999px; border: none; background: linear-gradient(135deg,#a855f7,#6366f1); color: white; font-weight: 500; font-size: 0.9rem; cursor: pointer; }
+        button:hover { background: linear-gradient(135deg,#9333ea,#4f46e5); }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>OddsLocker terminal</h1>
+        <p>Enter the terminal password to view live odds.</p>
+        <form method="post" action="/login">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <button type="submit">Enter</button>
+        </form>
+      </div>
+    </body>
+    </html>
+    `)
+  }
   res.type('html').send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -330,6 +375,16 @@ app.get('/', (_req, res) => {
   `)
 })
 
+app.post('/login', (req, res) => {
+  if (!LOGIN_PASSWORD) return res.redirect('/')
+  const { password } = req.body || {}
+  if (!password || password !== LOGIN_PASSWORD) {
+    return res.redirect('/')
+  }
+  res.setHeader('Set-Cookie', 'ol_auth=1; Path=/; HttpOnly; SameSite=Lax')
+  res.redirect('/')
+})
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true, sources: Object.keys(lastBySource).length, viewers: viewers.size })
 })
@@ -349,6 +404,10 @@ const wss = new WebSocketServer({ noServer: true })
 httpServer.on('upgrade', (request, socket, head) => {
   const path = request.url?.split('?')[0]
   if (path === '/' || path === '') {
+    if (!isAuthed(request)) {
+      socket.destroy()
+      return
+    }
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, request)
     })
