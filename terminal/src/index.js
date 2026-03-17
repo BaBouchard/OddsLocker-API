@@ -205,13 +205,21 @@ app.get('/', (req, res) => {
         .tagline { color: var(--muted); font-size: 0.95rem; margin: 0 0 1.5rem 0; }
         .section-title .total-odds { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--accent); margin-left: 0.35rem; }
         @keyframes green-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-        .vps-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+        .vps-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; perspective: 1100px; }
         .vps-slot {
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 8px;
           padding: 0.65rem 0.75rem;
           text-align: center;
+          transform-style: preserve-3d;
+          will-change: transform, opacity;
+          transition: transform 0.55s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.55s ease-out, box-shadow 0.3s ease-out;
+        }
+        .vps-slot.deal-in {
+          opacity: 1 !important;
+          transform: rotateX(0deg) translateY(0) !important;
+          box-shadow: 0 18px 40px rgba(0,0,0,0.45);
         }
         .vps-slot .vps-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 0.35rem; }
         .vps-slot .vps-n { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text); margin-bottom: 0.15rem; }
@@ -232,6 +240,14 @@ app.get('/', (req, res) => {
           overflow: hidden;
           max-height: 380px;
           overflow-y: auto;
+          opacity: 1;
+          transform: translateY(0);
+          will-change: opacity, transform;
+          transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .table-wrap.reveal-in {
+          opacity: 1 !important;
+          transform: translateY(0) !important;
         }
         #oddsTable { width: 100%; border-collapse: collapse; font-size: 0.8125rem; table-layout: fixed; }
         #oddsTable th, #oddsTable td { width: 14.28%; }
@@ -303,6 +319,28 @@ app.get('/', (req, res) => {
         const ws = new WebSocket(wsProtocol + location.host)
         const tbody = document.querySelector('#oddsTable tbody')
         const totalOddsEl = document.getElementById('totalOdds')
+        ;(function setupIntroAnimation() {
+          const slots = Array.from(document.querySelectorAll('.vps-slot'))
+          const tableWrap = document.querySelector('.table-wrap')
+          if (slots.length === 0 || !tableWrap) return
+          // prime initial state
+          slots.forEach((slot) => {
+            slot.style.opacity = '0'
+            slot.style.transform = 'rotateX(90deg) translateY(-12px)'
+          })
+          tableWrap.style.opacity = '0'
+          tableWrap.style.transform = 'translateY(18px)'
+          // stagger in VPS slots like dealing cards
+          slots.forEach((slot, idx) => {
+            setTimeout(() => {
+              slot.classList.add('deal-in')
+            }, idx * 160)
+          })
+          const totalDuration = (slots.length - 1) * 160 + 550
+          setTimeout(() => {
+            tableWrap.classList.add('reveal-in')
+          }, totalDuration)
+        })()
         function escapeHtml(s) {
           if (s == null) return ''
           const div = document.createElement('div')

@@ -80,11 +80,15 @@ export class BetMGMAdapter extends BaseAdapter {
     const interval = Number(this.config.pollIntervalMs || process.env.POLL_INTERVAL_MS) || 2000
 
     try {
+      const cookie = this.config.cookie ?? process.env.BETMGM_COOKIE
       const headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
         Accept: 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9'
+        'Accept-Language': 'en-US,en;q=0.9',
+        Referer: baseUrl + '/',
+        Origin: baseUrl
       }
+      if (cookie) headers.Cookie = cookie
       const res = await fetch(url, {
         signal: AbortSignal.timeout(15000),
         headers: { ...headers, ...this.config.fetchOptions?.headers }

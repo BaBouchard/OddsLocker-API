@@ -7,6 +7,7 @@ import { FanDuelAdapter } from './adapters/fanduel.js'
 import { BovadaAdapter } from './adapters/bovada.js'
 import { PointsBetAdapter } from './adapters/pointsbet.js'
 import { BetMGMAdapter } from './adapters/betmgm.js'
+import { EightEightEightAdapter } from './adapters/eightsport.js'
 import { MockAdapter } from './adapters/mock.js'
 import { ScrapeAdapter } from './adapters/scrape.js'
 
@@ -131,7 +132,22 @@ function getBookConfigs() {
         pollUrl: process.env.BETMGM_POLL_URL,
         pollIntervalMs: process.env.POLL_INTERVAL_MS || 2000,
         sportsbookName: process.env.BETMGM_NAME || 'BetMGM',
-        bookmakerBaseUrl: process.env.BETMGM_BOOKMAKER_BASE_URL || 'https://www.ny.betmgm.com'
+        bookmakerBaseUrl: process.env.BETMGM_BOOKMAKER_BASE_URL || 'https://www.ny.betmgm.com',
+        cookie: process.env.BETMGM_COOKIE || null
+      }
+    })
+  }
+  if (process.env.EIGHTS_POLL_URL) {
+    books.push({
+      bookId: '888sport',
+      name: process.env.EIGHTS_NAME || '888sport',
+      adapter: '888sport',
+      config: {
+        bookId: '888sport',
+        pollUrl: process.env.EIGHTS_POLL_URL,
+        sportsbookName: process.env.EIGHTS_NAME || '888sport',
+        bookmakerBaseUrl: process.env.EIGHTS_BOOKMAKER_BASE_URL || 'https://www.888sport.com',
+        cookie: process.env.EIGHTS_COOKIE || null
       }
     })
   }
@@ -246,7 +262,6 @@ async function main() {
       if (lastFetchBookIds && lastFetchBookIds.length > 0) {
         merged = lastFetchBookIds.flatMap((id) => lastEntriesByBook[bookIdToKey[id]] || [])
         lastFetchBookIds = null
-        if (merged.length === 0) merged = Object.values(lastEntriesByBook).flat()
       } else {
         merged = Object.values(lastEntriesByBook).flat()
       }
@@ -264,7 +279,9 @@ async function main() {
             ? new PointsBetAdapter(book.config)
             : book.adapter === 'betmgm'
               ? new BetMGMAdapter(book.config)
-              : new PollAdapter(book.config)
+              : book.adapter === '888sport'
+                ? new EightEightEightAdapter(book.config)
+                : new PollAdapter(book.config)
       const bookKey = book.config.sportsbookName
       adapters.push(adapter)
       await adapter.start(LEAGUE_KEY, (entries, meta) => {
