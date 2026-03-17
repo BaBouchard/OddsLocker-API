@@ -159,6 +159,7 @@ app.get('/', (_req, res) => {
         }
         .tagline { color: var(--muted); font-size: 0.95rem; margin: 0 0 1.5rem 0; }
         .section-title .total-odds { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--accent); margin-left: 0.35rem; }
+        @keyframes green-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
         .vps-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
         .vps-slot {
           background: var(--surface);
@@ -174,7 +175,7 @@ app.get('/', (_req, res) => {
         .vps-slot .vps-book-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.25rem; }
         .vps-slot .vps-book-row:last-child { margin-bottom: 0; }
         .vps-slot .vps-book-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-        .vps-slot .vps-book-dot.active { background: var(--green); }
+        .vps-slot .vps-book-dot.active { background: var(--green); animation: green-blink 2s ease-in-out infinite; }
         .vps-slot .vps-book-dot.stale { background: #eab308; }
         .vps-slot .vps-book-dot.off { background: var(--muted); opacity: 0.5; }
         .vps-slot .vps-book-dot.banned { background: #ef4444; }
