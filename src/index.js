@@ -6,6 +6,7 @@ import { PollAdapter } from './adapters/poll.js'
 import { FanDuelAdapter } from './adapters/fanduel.js'
 import { BovadaAdapter } from './adapters/bovada.js'
 import { PointsBetAdapter } from './adapters/pointsbet.js'
+import { BetMGMAdapter } from './adapters/betmgm.js'
 import { MockAdapter } from './adapters/mock.js'
 import { ScrapeAdapter } from './adapters/scrape.js'
 
@@ -117,6 +118,20 @@ function getBookConfigs() {
         footballUrl: process.env.POINTSBET_FOOTBALL_URL,
         tennisUrl: process.env.POINTSBET_TENNIS_URL,
         cookie: process.env.POINTSBET_COOKIE || null
+      }
+    })
+  }
+  if (process.env.BETMGM_POLL_URL) {
+    books.push({
+      bookId: 'betmgm',
+      name: process.env.BETMGM_NAME || 'BetMGM',
+      adapter: 'betmgm',
+      config: {
+        bookId: 'betmgm',
+        pollUrl: process.env.BETMGM_POLL_URL,
+        pollIntervalMs: process.env.POLL_INTERVAL_MS || 2000,
+        sportsbookName: process.env.BETMGM_NAME || 'BetMGM',
+        bookmakerBaseUrl: process.env.BETMGM_BOOKMAKER_BASE_URL || 'https://www.ny.betmgm.com'
       }
     })
   }
@@ -247,7 +262,9 @@ async function main() {
           ? new BovadaAdapter(book.config)
           : book.adapter === 'pointsbet'
             ? new PointsBetAdapter(book.config)
-            : new PollAdapter(book.config)
+            : book.adapter === 'betmgm'
+              ? new BetMGMAdapter(book.config)
+              : new PollAdapter(book.config)
       const bookKey = book.config.sportsbookName
       adapters.push(adapter)
       await adapter.start(LEAGUE_KEY, (entries, meta) => {
