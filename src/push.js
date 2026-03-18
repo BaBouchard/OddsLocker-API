@@ -17,10 +17,13 @@ export async function pushToTerminal(entries, terminalUrl, sourceId) {
   if (!terminalUrl || !sourceId) return
   const url = `${terminalUrl.replace(/\/$/, '')}/ingest`
   const data = Array.isArray(entries) ? entries : []
+  const headers = { 'Content-Type': 'application/json' }
+  const ingestSecret = process.env.TERMINAL_INGEST_SECRET
+  if (ingestSecret) headers['X-Terminal-Ingest-Secret'] = ingestSecret
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ sourceId, data })
     })
     if (!res.ok) throw new Error(await res.text())

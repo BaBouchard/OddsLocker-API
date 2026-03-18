@@ -8,6 +8,8 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3000
 const LOGIN_PASSWORD = process.env.TERMINAL_LOGIN_PASSWORD || ''
+/** If set, scrapers must send header X-Terminal-Ingest-Secret: <same value>. Ingest never uses the browser login cookie. */
+const TERMINAL_INGEST_SECRET = process.env.TERMINAL_INGEST_SECRET || ''
 
 // Same sort as scraper broadcast: event_id then market (moneyline, spread, total)
 const MARKET_ORDER = { moneyline: 0, spread: 1, total: 2 }
@@ -100,8 +102,12 @@ function isAuthed(req) {
 }
 
 app.post('/ingest', (req, res) => {
-  if (!isAuthed(req)) {
-    return res.status(401).json({ error: 'Unauthorized' })
+  // Scrapers cannot send the dashboard cookie; do not gate ingest on TERMINAL_LOGIN_PASSWORD.
+  if (TERMINAL_INGEST_SECRET) {
+    const sent = req.headers['x-terminal-ingest-secret']
+    if (sent !== TERMINAL_INGEST_SECRET) {
+      return res.status(401).json({ error: 'Invalid or missing X-Terminal-Ingest-Secret' })
+    }
   }
   const { sourceId, data } = req.body || {}
   if (!sourceId || !Array.isArray(data)) {
