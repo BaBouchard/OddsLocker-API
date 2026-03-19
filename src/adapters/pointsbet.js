@@ -1,10 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** Convert decimal odds to American. */
 function decimalToAmerican(decimal) {
@@ -96,7 +93,7 @@ export class PointsBetAdapter extends BaseAdapter {
         const shouldDebug = !debugged && (process.env.DEBUG_POINTSBET === '1' || process.env.DEBUG_POINTSBET === 'true')
         if (shouldDebug) {
           debugged = true
-          const debugPath = path.join(__dirname, '..', '..', 'debug-pointsbet-response.json')
+          const debugPath = path.join(process.cwd(), 'debug-pointsbet-response.json')
           fs.writeFileSync(debugPath, JSON.stringify({ sport, url, status: res.status, statusText: res.statusText, bodyLength: text.length, body: text.slice(0, 5000) }, null, 2), 'utf8')
           console.warn('[LiveOdds] PointsBet debug: wrote', debugPath)
         }

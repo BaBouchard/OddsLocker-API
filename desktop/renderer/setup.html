@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OddsLocker — Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #18181c;
+      --border: #2a2a30;
+      --text: #e4e4e7;
+      --muted: #71717a;
+      --accent: #a78bfa;
+      --accent-dim: #7c3aed;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Outfit', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.75rem 1.5rem 2rem;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 0.35rem 0;
+      letter-spacing: -0.02em;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0 0 1.5rem 0;
+    }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .field { margin-bottom: 1.15rem; }
+    select, input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+    }
+    select:focus, input:focus {
+      outline: none;
+      border-color: var(--accent-dim);
+      box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
+    }
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.35rem;
+    }
+    .btn-row {
+      display: flex;
+      gap: 0.65rem;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+    }
+    button {
+      font-family: 'Outfit', system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.65rem 1.1rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-dim), var(--accent));
+      color: #fff;
+    }
+    .btn-primary:hover { filter: brightness(1.08); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--muted); }
+    .env-status {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-top: 0.35rem;
+    }
+    .env-missing { color: var(--muted); }
+    .error {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fecaca;
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    .error.show { display: block; }
+    .steps {
+      counter-reset: step;
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.25rem 0;
+    }
+    .steps li {
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 0.5rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .steps li::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1.35rem;
+      height: 1.35rem;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.7rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <h1>OddsLocker Scraper</h1>
+  <p class="sub">Configure this PC as a VPS-style instance. After setup, the hosted terminal opens in a window and the scraper runs in the background.</p>
+
+  <ol class="steps">
+    <li>Choose which VPS slot this machine reports as.</li>
+    <li>Paste your central terminal URL (Railway / hosted).</li>
+    <li>Import the same <code>.env</code> you use on a working scraper (books, cookies, URLs).</li>
+  </ol>
+
+  <div class="field">
+    <label for="sourceId">This instance is</label>
+    <select id="sourceId">
+      <option value="vps1">VPS 1 (sourceId: vps1)</option>
+      <option value="vps2">VPS 2 (sourceId: vps2)</option>
+      <option value="vps3">VPS 3 (sourceId: vps3)</option>
+      <option value="vps4">VPS 4 (sourceId: vps4)</option>
+      <option value="vps5">VPS 5 (sourceId: vps5)</option>
+      <option value="vps6">VPS 6 (sourceId: vps6)</option>
+    </select>
+    <p class="hint">Must match a slot on your OddsLocker terminal dashboard.</p>
+  </div>
+
+  <div class="field">
+    <label for="terminalUrl">Central terminal URL</label>
+    <input type="text" id="terminalUrl" placeholder="https://your-app.up.railway.app" autocomplete="url" />
+    <p class="hint">HTTPS URL of the terminal service (ingest + WebSocket).</p>
+  </div>
+
+  <div class="field">
+    <label for="ingestSecret">Terminal ingest secret (optional)</label>
+    <input type="password" id="ingestSecret" placeholder="Only if TERMINAL_INGEST_SECRET is set on Railway" autocomplete="off" />
+  </div>
+
+  <div class="field">
+    <label>Book configuration (.env)</label>
+    <button type="button" class="btn-secondary" id="pickEnv">Choose .env file…</button>
+    <div id="envStatus" class="env-status env-missing">No file selected</div>
+    <p class="hint">We merge SOURCE_ID, TERMINAL_URL, and optional ingest secret into this file and save it for this app only.</p>
+  </div>
+
+  <div class="error" id="errorBox"></div>
+
+  <div class="btn-row">
+    <button type="button" class="btn-primary" id="btnStart">Finish &amp; start</button>
+    <button type="button" class="btn-secondary" id="btnCancel">Cancel</button>
+  </div>
+
+  <script src="setup.js"></script>
+</body>
+</html>

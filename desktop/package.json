@@ -1,0 +1,57 @@
+{
+  "name": "oddslocker-scraper-desktop",
+  "version": "1.0.0",
+  "description": "OddsLocker scraper + hosted terminal in a desktop window (Windows installer)",
+  "main": "main.cjs",
+  "author": "OddsLocker",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "predist": "cd .. && npm run build:win",
+    "dist": "electron-builder --win",
+    "dist:dir": "electron-builder --win --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.oddslocker.scraper",
+    "productName": "OddsLocker Scraper",
+    "copyright": "Copyright OddsLocker",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "renderer/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist/live-odds-scraper.exe",
+        "to": "scraper.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OddsLocker Scraper",
+      "installerHeader": "OddsLocker Scraper"
+    }
+  }
+}

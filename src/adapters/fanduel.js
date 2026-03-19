@@ -1,10 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** Map FanDuel marketType / marketName to normalized market_type slug. */
 function toMarketType(marketType, marketName) {
@@ -98,7 +95,7 @@ export class FanDuelAdapter extends BaseAdapter {
         ...this.config.fetchOptions
       })
       const text = await res.text()
-      const debugPath = path.join(__dirname, '..', '..', 'debug-fanduel-response.json')
+      const debugPath = path.join(process.cwd(), 'debug-fanduel-response.json')
       const shouldDebug = process.env.DEBUG_FANDUEL === '1' || process.env.DEBUG_FANDUEL === 'true'
       if (!res.ok) {
         console.warn('[LiveOdds] FanDuel API', res.status, res.statusText, text.slice(0, 200))
