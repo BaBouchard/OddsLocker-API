@@ -27,6 +27,13 @@ npm install
 npm run dist
 ```
 
+**Taskbar icon (optional):** Plain **`npm run dist`** avoids a Windows symlink issue but the **taskbar** may show Electron’s default icon. To **embed the OL icon in the `.exe`** (correct taskbar), first enable **Developer Mode** or use an **admin** shell (see **Build fails: symlink / winCodeSign** below), clear the `winCodeSign` cache, then run:
+
+```bat
+cd desktop
+npm run dist:exe-icon
+```
+
 Output: **`desktop/release/OddsLocker Scraper-Setup-<version>.exe`** — `<version>` is **`version`** in `desktop/package.json` (bump it before each installer release so filenames match what you shipped).
 
 The dashboard shows **App v…** (same number as `desktop/package.json`) under the subtitle so you can confirm the running build.
@@ -53,22 +60,28 @@ Quick unpacked folder (no installer): `cd desktop && npm run dist:dir`.
 ## Shortcuts & taskbar icon (Windows)
 
 - **Desktop / Start Menu:** The NSIS installer is set to create **Start Menu** and **desktop** shortcuts named **OddsLocker Scraper** when you run the setup wizard. If you don’t see one on the desktop, open **Start**, type **OddsLocker**, open the app once, then **right‑click the taskbar icon → Pin to taskbar**, or **right‑click the Start menu entry → More → Open file location** and copy a shortcut to your desktop.
-- **Taskbar shows the Electron atom:** The **title bar** can use our PNG via `BrowserWindow`, but the **taskbar** uses the icon **embedded in `OddsLocker Scraper.exe`**. The build must run **resource editing** (`signAndEditExecutable: true` in `desktop/package.json`) so electron-builder patches the exe with `assets/icon.png`. After installing a build made that way, the taskbar should show the **OL** logo. **`npm start` / dev mode** still uses Electron’s generic icon on the taskbar — that’s normal.
+- **Title bar vs taskbar:** The **title bar** uses our PNG (`BrowserWindow.icon`). The **taskbar** reads the icon **inside `OddsLocker Scraper.exe`**, which is only patched when the build runs with **`signAndEditExecutable: true`**. Because that step downloads **winCodeSign** and extracts an archive that contains **symlinks**, many PCs fail unless you use **Developer Mode** or an **admin** prompt. So:
+  - **`npm run dist`** — works on normal accounts; **taskbar** may show the **Electron** icon.
+  - **`npm run dist:exe-icon`** — same installer, but enables exe patching so the **taskbar** can show **OL**; run **after** fixing symlink permissions (below).
 
 ## Build fails: `Cannot create symbolic link` / `winCodeSign` / 7-Zip
 
-On some Windows accounts, electron-builder’s code-signing helper archive contains **symlinks**; extracting them needs extra permission.
+electron-builder downloads **winCodeSign** and 7-Zip extracts it. The archive includes **symlinks** (e.g. under `darwin/...`). Windows returns **“A required privilege is not held by the client”** if your user cannot create symlinks.
 
-**Fix (pick one):**
+**Fix (pick one), then delete the broken cache and rebuild:**
 
-1. **Settings → System → For developers → Developer Mode → On** (Windows 11), then delete the bad cache and retry:
-   ```bat
-   rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"
-   cd C:\path\to\OddsLockerScraper\desktop
-   npm run dist
-   ```
-2. Or open **Command Prompt as Administrator** and run `npm run dist` again.
-3. The repo uses **`signAndEditExecutable: true`** so the **Windows exe gets your app icon** (taskbar) and metadata; you still **don’t need a code-signing certificate**. If `npm run dist` fails only on symlink extraction, use **Developer Mode** or an **admin** prompt (steps 1–2 above)—don’t flip this to `false` unless you accept the **default Electron taskbar icon** again.
+1. **Developer Mode (recommended):** **Settings → System → For developers → Developer Mode → On** (wording may vary slightly on Windows 10 vs 11). Sign out/in if needed.
+2. **Elevated shell:** Open **Command Prompt** or **PowerShell as Administrator** and run the build from there.
+
+Then clear the cache and run the **icon** build:
+
+```bat
+rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"
+cd C:\path\to\OddsLockerScraper\desktop
+npm run dist:exe-icon
+```
+
+If you only need a working installer and don’t care about the taskbar icon, use **`npm run dist`** (no symlink step; default **`signAndEditExecutable: false`** in `desktop/package.json`).
 
 ## Development
 
