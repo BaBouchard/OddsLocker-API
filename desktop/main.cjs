@@ -231,6 +231,12 @@ function setApplicationMenu() {
   Menu.setApplicationMenu(menu)
 }
 
+/** Same artwork as terminal `/assets/logo.png` (bundled as `assets/icon.png`). */
+function getWindowIconPath() {
+  const p = path.join(__dirname, 'assets', 'icon.png')
+  return fs.existsSync(p) ? p : undefined
+}
+
 function normalizeTerminalUrl(url) {
   let u = (url || '').trim()
   if (!u) return ''
@@ -246,6 +252,7 @@ function createMainWindow() {
     minHeight: 600,
     show: false,
     title: 'OddsLocker Scraper',
+    icon: getWindowIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -282,6 +289,7 @@ function openSetupWindow({ settings = false } = {}) {
     modal: !!mainWindow,
     parent: mainWindow || undefined,
     title: settings ? 'OddsLocker — Settings' : 'OddsLocker — Setup',
+    icon: getWindowIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload-setup.cjs'),
       contextIsolation: true,

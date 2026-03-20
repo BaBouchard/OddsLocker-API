@@ -4,7 +4,8 @@ Windowed app with:
 
 - **NSIS installer** (desktop shortcut, Start Menu, choose install folder).
 - **First-run setup wizard**: pick **VPS 1–6**, enter **central terminal URL**, optional **ingest secret**, import **`.env`** (same book keys as your VPS).
-- **Main window**: **scraper dashboard** — connects to **`ws://127.0.0.1:<WS_SERVER_PORT>`** (default **8765**, from your merged `.env`) and shows the same **odds / auto-poll / fetch-once / book checkboxes** behavior as `test-client.html`. This is **this machine’s** scraper, not the hosted site.
+- **Main window**: **scraper dashboard** — connects to **`ws://127.0.0.1:<WS_SERVER_PORT>`** (default **8765**, from your merged `.env`) and shows the same **odds / auto-poll / fetch-once / book checkboxes** behavior as `test-client.html`. This is **this machine’s** scraper, not the hosted site. **Auto poll** defaults **off** until you enable it in the UI (each scraper process starts with auto poll off).
+- **App icon**: Windows installer / window icon uses the same artwork as the hosted terminal logo (`terminal/public/logo.png`), copied into **`desktop/assets/icon.png`** for Electron.
 - **Hosted terminal**: open in your **system browser** via **Help → Open hosted terminal in browser** (or the link on the dashboard). Login and cookies stay in the browser.
 - **Background**: packaged **`scraper.exe`** runs with **no console**; reads merged **`.env`** from the app data folder.
 

@@ -227,7 +227,7 @@ async function main() {
     const server = createBroadcastServer(WS_PORT, {
       getState() {
         const pollAdapter = adapters.find((a) => typeof a.autoPoll !== 'undefined')
-        const autoPoll = pollAdapter ? pollAdapter.autoPoll : true
+        const autoPoll = pollAdapter ? pollAdapter.autoPoll : false
         return {
           type: 'state',
           autoPoll,

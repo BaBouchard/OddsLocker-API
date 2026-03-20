@@ -52,7 +52,7 @@ export class BetMGMAdapter extends BaseAdapter {
     this._onOdds = onOdds
     this._leagueKey = leagueKey
     this._running = true
-    this._autoPoll = true
+    this._autoPoll = false
     this._tick()
   }
 

@@ -26,6 +26,10 @@ export class MockAdapter extends BaseAdapter {
       this._timer = null
     }
     if (this._autoPoll && this._running && this._onOdds) {
+      if (this._timer) {
+        clearInterval(this._timer)
+        this._timer = null
+      }
       const interval = Number(this.config.pollIntervalMs || process.env.POLL_INTERVAL_MS) || 3000
       this._timer = setInterval(() => {
         if (!this._autoPoll) return
@@ -63,13 +67,9 @@ export class MockAdapter extends BaseAdapter {
   async start(leagueKey, onOdds) {
     this._onOdds = onOdds
     this._running = true
-    this._autoPoll = true
+    this._autoPoll = false
     this._emit()
-    const interval = Number(this.config.pollIntervalMs || process.env.POLL_INTERVAL_MS) || 3000
-    this._timer = setInterval(() => {
-      if (!this._autoPoll) return
-      this._emit()
-    }, interval)
+    // Auto-poll interval starts only when setAutoPoll(true)
   }
   stop() {
     super.stop()
