@@ -280,7 +280,11 @@ ipcMain.handle('config:load', () => loadConfig())
 ipcMain.handle('config:pick-env', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: 'Select .env from your working scraper',
-    filters: [{ name: 'Environment', extensions: ['env', 'txt'] }, { name: 'All', extensions: ['*'] }],
+    // "All files" first — Windows often hides downloads without .env/.txt (e.g. Discord renames).
+    filters: [
+      { name: 'All files', extensions: ['*'] },
+      { name: 'Env / text', extensions: ['env', 'txt'] }
+    ],
     properties: ['openFile']
   })
   if (canceled || !filePaths[0]) return null
