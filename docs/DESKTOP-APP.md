@@ -42,6 +42,21 @@ Quick unpacked folder (no installer): `cd desktop && npm run dist:dir`.
 
 **Help → Open data folder** shows `%APPDATA%/oddslocker-scraper-desktop` (or similar) with `config.json` and `.env`.
 
+## Build fails: `Cannot create symbolic link` / `winCodeSign` / 7-Zip
+
+On some Windows accounts, electron-builder’s code-signing helper archive contains **symlinks**; extracting them needs extra permission.
+
+**Fix (pick one):**
+
+1. **Settings → System → For developers → Developer Mode → On** (Windows 11), then delete the bad cache and retry:
+   ```bat
+   rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"
+   cd C:\path\to\OddsLockerScraper\desktop
+   npm run dist
+   ```
+2. Or open **Command Prompt as Administrator** and run `npm run dist` again.
+3. The repo sets **`signAndEditExecutable: false`** for Windows so local builds skip signing (no cert needed). **Pull latest** `desktop/package.json` if you cloned before that change.
+
 ## Development
 
 ```bash
