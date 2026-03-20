@@ -97,7 +97,7 @@ export class PollAdapter extends BaseAdapter {
 
       const allEntries = [...baseEntries, ...detailEntries]
       const pollRequests = 1 + detailTargets.length
-      this._onOdds(allEntries, { pollRequests })
+      this._onOdds(allEntries, { pollRequests, fromFetchOnce: true })
     } catch (e) {
       console.warn('[LiveOdds] Poll (with extras) error:', e.message)
     }
@@ -113,7 +113,7 @@ export class PollAdapter extends BaseAdapter {
       const data = await res.json()
       const entries = this.parseResponse(data, leagueKey) || []
       if (fromFetchOnce) {
-        this._onOdds(entries, { pollRequests: 1 })
+        this._onOdds(entries, { pollRequests: 1, fromFetchOnce: true })
       } else if (entries.length) {
         this._onOdds(entries)
       }

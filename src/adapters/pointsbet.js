@@ -120,7 +120,7 @@ export class PointsBetAdapter extends BaseAdapter {
       }
     }
 
-    this._onOdds(allEntries, { pollRequests: sportUrls.length })
+    this._onOdds(allEntries, { pollRequests: sportUrls.length, fromFetchOnce: true })
   }
 
   parseResponse(data, opts = {}) {

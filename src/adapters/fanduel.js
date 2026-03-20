@@ -99,7 +99,7 @@ export class FanDuelAdapter extends BaseAdapter {
       if (!res.ok) {
         console.warn('[LiveOdds] FanDuel API', res.status, res.statusText, text.slice(0, 200))
         if (shouldDebug) fs.writeFileSync(debugPath, JSON.stringify({ status: res.status, statusText: res.statusText, body: text }, null, 2), 'utf8')
-        this._onOdds([], { pollRequests: 1 })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
         return
       }
       let data
@@ -108,7 +108,7 @@ export class FanDuelAdapter extends BaseAdapter {
       } catch (e) {
         console.warn('[LiveOdds] FanDuel API returned non-JSON:', text.slice(0, 200))
         if (shouldDebug) fs.writeFileSync(debugPath, text, 'utf8')
-        this._onOdds([], { pollRequests: 1 })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
         return
       }
       if (shouldDebug) fs.writeFileSync(debugPath, JSON.stringify(data, null, 2), 'utf8')
@@ -124,7 +124,7 @@ export class FanDuelAdapter extends BaseAdapter {
         if (firstMarket) console.warn('[LiveOdds] FanDuel sample market keys:', Object.keys(firstMarket).join(', '))
         if (firstRunner) console.warn('[LiveOdds] FanDuel sample runner keys:', Object.keys(firstRunner).join(', '))
       }
-      this._onOdds(entries, { pollRequests: 1 })
+      this._onOdds(entries, { pollRequests: 1, fromFetchOnce: true })
     } catch (e) {
       console.warn('[LiveOdds] FanDuel fetch error:', e.message)
       if (process.env.DEBUG_FANDUEL === '1' || process.env.DEBUG_FANDUEL === 'true') {

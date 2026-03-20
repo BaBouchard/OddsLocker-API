@@ -31,7 +31,7 @@ export async function pushToTerminal(entries, terminalUrl, sourceId, extra = {})
       body: JSON.stringify(body)
     })
     if (!res.ok) throw new Error(await res.text())
-    if (data.length) console.log('[LiveOdds] Pushed', data.length, 'entries to terminal')
+    console.log('[LiveOdds] Pushed', data.length, 'entries to terminal')
   } catch (e) {
     console.warn('[LiveOdds] Push to terminal failed:', e.message)
   }

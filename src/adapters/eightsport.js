@@ -90,7 +90,7 @@ export class EightEightEightAdapter extends BaseAdapter {
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] 888Sport API', res.status, res.statusText, text.slice(0, 200))
-        this._onOdds([], { pollRequests: 1 })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
         return
       }
       let data
@@ -98,11 +98,11 @@ export class EightEightEightAdapter extends BaseAdapter {
         data = text ? JSON.parse(text) : null
       } catch (e) {
         console.warn('[LiveOdds] 888Sport API non-JSON:', text.slice(0, 200))
-        this._onOdds([], { pollRequests: 1 })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
         return
       }
       const entries = this.parseResponse(data, { sportsbook, baseUrl })
-      this._onOdds(entries, { pollRequests: 1 })
+      this._onOdds(entries, { pollRequests: 1, fromFetchOnce: true })
     } catch (e) {
       console.warn('[LiveOdds] 888Sport fetch error:', e.message)
     }

@@ -259,9 +259,19 @@ async function main() {
     const bookIdToKey = Object.fromEntries(bookConfigs.map((b) => [b.bookId, b.config.sportsbookName]))
     let lastLeagueWatcher = null // Bovada-only snapshot for terminal League Watcher (raw JSON derived)
 
-    const mergeAndBroadcast = () => {
+    /**
+     * When user clicks "Fetch once" with selected books, we set lastFetchBookIds.
+     * Auto-poll from *other* books must NOT consume that filter — it would merge an empty
+     * subset, clear lastFetchBookIds, and (with TERMINAL_REPLACE_ALL_ON_INGEST) wipe the terminal.
+     * Only callbacks from fetchOnce pass meta.fromFetchOnce.
+     */
+    const mergeAndBroadcast = (meta = {}) => {
       let merged
-      if (lastFetchBookIds && lastFetchBookIds.length > 0) {
+      if (
+        lastFetchBookIds &&
+        lastFetchBookIds.length > 0 &&
+        meta.fromFetchOnce === true
+      ) {
         merged = lastFetchBookIds.flatMap((id) => lastEntriesByBook[bookIdToKey[id]] || [])
         lastFetchBookIds = null
       } else {
@@ -295,7 +305,7 @@ async function main() {
         if (meta?.leagueWatcher) {
           lastLeagueWatcher = mergeSnapshotWithPersistentCache(meta.leagueWatcher)
         }
-        mergeAndBroadcast()
+        mergeAndBroadcast(meta)
       })
       console.log(`[LiveOdds] Adapter "${adapter.name}" (${adapter.bookId}) started for ${bookKey} (league: ${LEAGUE_KEY})`)
     }

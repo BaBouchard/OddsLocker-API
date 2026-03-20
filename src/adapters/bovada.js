@@ -85,7 +85,7 @@ export class BovadaAdapter extends BaseAdapter {
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] Bovada API', res.status, res.statusText, text.slice(0, 200))
-        this._onOdds([], { pollRequests: 1 })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
         return
       }
       let data
@@ -93,7 +93,7 @@ export class BovadaAdapter extends BaseAdapter {
         data = text ? JSON.parse(text) : []
       } catch (e) {
         console.warn('[LiveOdds] Bovada API returned non-JSON:', text.slice(0, 200))
-        this._onOdds([], { pollRequests: 1 })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
         return
       }
       const pathGroups = Array.isArray(data) ? data : [data]
@@ -103,7 +103,7 @@ export class BovadaAdapter extends BaseAdapter {
         defaultSport,
         baseUrl
       })
-      this._onOdds(entries, { pollRequests: 1, leagueWatcher })
+      this._onOdds(entries, { pollRequests: 1, leagueWatcher, fromFetchOnce: true })
     } catch (e) {
       console.warn('[LiveOdds] Bovada fetch error:', e.message)
     }

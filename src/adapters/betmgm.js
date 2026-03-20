@@ -96,7 +96,7 @@ export class BetMGMAdapter extends BaseAdapter {
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] BetMGM API', res.status, res.statusText, text.slice(0, 200))
-        if (fromFetchOnce) this._onOdds([], { pollRequests: 1 })
+        if (fromFetchOnce) this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
         if (this._running && this._autoPoll) this._timer = setTimeout(() => this._tick(), interval)
         return
       }
@@ -105,18 +105,18 @@ export class BetMGMAdapter extends BaseAdapter {
         data = text ? JSON.parse(text) : null
       } catch (e) {
         console.warn('[LiveOdds] BetMGM API returned non-JSON:', text.slice(0, 200))
-        if (fromFetchOnce) this._onOdds([], { pollRequests: 1 })
+        if (fromFetchOnce) this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
         if (this._running && this._autoPoll) this._timer = setTimeout(() => this._tick(), interval)
         return
       }
 
       const entries = this.parseResponse(data, { sportsbook, baseUrl })
       if (fromFetchOnce || entries.length > 0) {
-        this._onOdds(entries, { pollRequests: 1 })
+        this._onOdds(entries, { pollRequests: 1, fromFetchOnce: !!fromFetchOnce })
       }
     } catch (e) {
       console.warn('[LiveOdds] BetMGM fetch error:', e.message)
-      if (fromFetchOnce) this._onOdds([], { pollRequests: 1 })
+      if (fromFetchOnce) this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
     }
 
     if (this._running && this._autoPoll) this._timer = setTimeout(() => this._tick(), interval)
