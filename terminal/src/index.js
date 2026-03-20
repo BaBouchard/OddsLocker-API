@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3000
 const LOGIN_PASSWORD = process.env.TERMINAL_LOGIN_PASSWORD || ''
 /** If set, scrapers must send header X-Terminal-Ingest-Secret: <same value>. Ingest never uses the browser login cookie. */
-const TERMINAL_INGEST_SECRET = process.env.TERMINAL_INGEST_SECRET || ''
+const TERMINAL_INGEST_SECRET = String(process.env.TERMINAL_INGEST_SECRET || '').trim()
 /** If true, each POST /ingest clears all stored odds from every VPS before applying that request (troubleshooting; disables multi-VPS merge). */
 const TERMINAL_REPLACE_ALL_ON_INGEST =
   /^(1|true|yes|on)$/i.test(String(process.env.TERMINAL_REPLACE_ALL_ON_INGEST || '').trim())
@@ -36,6 +36,14 @@ const lastBookCountsBySource = {}
 /** Latest Bovada-derived league snapshot from ingest ({ sports, updatedAt }) */
 let lastLeagueWatcher = null
 const viewers = new Set()
+
+function clearAllTerminalOddsState() {
+  for (const k of Object.keys(lastBySource)) delete lastBySource[k]
+  for (const k of Object.keys(lastSeenBySource)) delete lastSeenBySource[k]
+  for (const k of Object.keys(lastBooksBySource)) delete lastBooksBySource[k]
+  for (const k of Object.keys(lastBookCountsBySource)) delete lastBookCountsBySource[k]
+  lastLeagueWatcher = null
+}
 
 const VPS_SLOTS = ['vps1', 'vps2', 'vps3', 'vps4', 'vps5', 'vps6']
 const KNOWN_SPORTSBOOKS = ['BetRivers', 'FanDuel', 'Bovada', 'PointsBet', 'BetMGM', '888sport']
@@ -128,7 +136,7 @@ function isAuthed(req) {
 app.post('/ingest', (req, res) => {
   // Scrapers cannot send the dashboard cookie; do not gate ingest on TERMINAL_LOGIN_PASSWORD.
   if (TERMINAL_INGEST_SECRET) {
-    const sent = req.headers['x-terminal-ingest-secret']
+    const sent = String(req.headers['x-terminal-ingest-secret'] || '').trim()
     if (sent !== TERMINAL_INGEST_SECRET) {
       return res.status(401).json({ error: 'Invalid or missing X-Terminal-Ingest-Secret' })
     }
@@ -136,6 +144,11 @@ app.post('/ingest', (req, res) => {
   const { sourceId, data } = req.body || {}
   if (!sourceId || !Array.isArray(data)) {
     return res.status(400).json({ error: 'Missing sourceId or data array' })
+  }
+  // With REPLACE_ALL, empty ingests would wipe the whole feed (e.g. another VPS posting 0 rows).
+  if (TERMINAL_REPLACE_ALL_ON_INGEST && data.length === 0) {
+    console.warn('[Terminal] Ignored empty ingest from', sourceId, '(REPLACE_ALL_ON_INGEST — would have cleared all data)')
+    return res.json({ ok: true, skipped: true, reason: 'empty_data_replace_all' })
   }
   if (TERMINAL_REPLACE_ALL_ON_INGEST) {
     clearAllTerminalOddsState()

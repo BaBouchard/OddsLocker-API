@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { createBroadcastServer } from './broadcast.js'
-import { pushToApi, pushToTerminal } from './push.js'
+import { pushToApi, pushToTerminal, normalizeTerminalBaseUrl } from './push.js'
 import { WebSocketAdapter } from './adapters/websocket.js'
 import { PollAdapter } from './adapters/poll.js'
 import { FanDuelAdapter } from './adapters/fanduel.js'
@@ -16,8 +16,8 @@ const LEAGUE_KEY = process.env.LEAGUE_KEY || 'basketball_nba'
 const WS_PORT = Number(process.env.WS_SERVER_PORT) || 8765
 const PUSH_URL = process.env.PUSH_TO_API_URL || ''
 const PUSH_KEY = process.env.PUSH_API_KEY || null
-const TERMINAL_URL = process.env.TERMINAL_URL || ''
-const SOURCE_ID = process.env.SOURCE_ID || 'scraper1'
+const TERMINAL_URL = normalizeTerminalBaseUrl(process.env.TERMINAL_URL || '')
+const SOURCE_ID = String(process.env.SOURCE_ID || 'scraper1').trim() || 'scraper1'
 
 const defaultSportKey = process.env.SPORT_KEY || LEAGUE_KEY.split('_')[0]
 const defaultLeagueTitle = process.env.LEAGUE_TITLE || LEAGUE_KEY
@@ -220,6 +220,15 @@ function selectAdapter() {
 }
 
 async function main() {
+  if (TERMINAL_URL) {
+    console.log('[LiveOdds] Terminal push enabled →', TERMINAL_URL, '| SOURCE_ID:', SOURCE_ID)
+  } else {
+    console.log(
+      '[LiveOdds] TERMINAL_URL not set — odds stay on local WebSocket only (port',
+      WS_PORT + '). Set TERMINAL_URL to your terminal https://… URL (use https, not wss).'
+    )
+  }
+
   const bookConfigs = getBookConfigs()
   const multiBook = bookConfigs.length >= 1
 

@@ -35,6 +35,8 @@ Then **every** `POST /ingest` clears all stored odds (and league watcher) before
 
 If **other** VPS scrapers are still posting (including empty payloads), their ingests can **overwrite** yours—pause them or unset this flag when not troubleshooting.
 
+While this flag is on, **empty** `data: []` ingests are **ignored** (no clear, no update) so a stale worker cannot wipe the feed. To clear the board, turn the flag off or POST from a client that sends real rows.
+
 ## Deploy (e.g. Railway)
 
 Deploy the `terminal` folder as its own service. Set `PORT` if needed (Railway sets it). Use the service’s public URL as `TERMINAL_URL` in your scrapers, and connect your website to `wss://<that-url>` for the live feed.

@@ -245,7 +245,10 @@ function getWindowIconPath() {
 function normalizeTerminalUrl(url) {
   let u = (url || '').trim()
   if (!u) return ''
-  if (!/^https?:\/\//i.test(u)) u = 'https://' + u
+  const lower = u.toLowerCase()
+  if (lower.startsWith('wss://')) u = 'https://' + u.slice(6)
+  else if (lower.startsWith('ws://')) u = 'http://' + u.slice(5)
+  else if (!/^https?:\/\//i.test(u)) u = 'https://' + u
   return u.replace(/\/$/, '')
 }
 
