@@ -3,6 +3,11 @@ const path = require('path')
 const fs = require('fs')
 const { spawn } = require('child_process')
 
+// Windows taskbar / Jump List grouping — must match build.appId. Also helps the correct icon show when the .exe embeds it.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.oddslocker.scraper')
+}
+
 const CONFIG_NAME = 'config.json'
 let mainWindow = null
 let scraperProcess = null

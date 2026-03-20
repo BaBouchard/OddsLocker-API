@@ -50,6 +50,11 @@ Quick unpacked folder (no installer): `cd desktop && npm run dist:dir`.
 
 **Help → Open data folder** shows `%APPDATA%/oddslocker-scraper-desktop` (or similar) with `config.json` and `.env`.
 
+## Shortcuts & taskbar icon (Windows)
+
+- **Desktop / Start Menu:** The NSIS installer is set to create **Start Menu** and **desktop** shortcuts named **OddsLocker Scraper** when you run the setup wizard. If you don’t see one on the desktop, open **Start**, type **OddsLocker**, open the app once, then **right‑click the taskbar icon → Pin to taskbar**, or **right‑click the Start menu entry → More → Open file location** and copy a shortcut to your desktop.
+- **Taskbar shows the Electron atom:** The **title bar** can use our PNG via `BrowserWindow`, but the **taskbar** uses the icon **embedded in `OddsLocker Scraper.exe`**. The build must run **resource editing** (`signAndEditExecutable: true` in `desktop/package.json`) so electron-builder patches the exe with `assets/icon.png`. After installing a build made that way, the taskbar should show the **OL** logo. **`npm start` / dev mode** still uses Electron’s generic icon on the taskbar — that’s normal.
+
 ## Build fails: `Cannot create symbolic link` / `winCodeSign` / 7-Zip
 
 On some Windows accounts, electron-builder’s code-signing helper archive contains **symlinks**; extracting them needs extra permission.
@@ -63,7 +68,7 @@ On some Windows accounts, electron-builder’s code-signing helper archive conta
    npm run dist
    ```
 2. Or open **Command Prompt as Administrator** and run `npm run dist` again.
-3. The repo sets **`signAndEditExecutable: false`** for Windows so local builds skip signing (no cert needed). **Pull latest** `desktop/package.json` if you cloned before that change.
+3. The repo uses **`signAndEditExecutable: true`** so the **Windows exe gets your app icon** (taskbar) and metadata; you still **don’t need a code-signing certificate**. If `npm run dist` fails only on symlink extraction, use **Developer Mode** or an **admin** prompt (steps 1–2 above)—don’t flip this to `false` unless you accept the **default Electron taskbar icon** again.
 
 ## Development
 
