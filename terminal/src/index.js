@@ -14,6 +14,30 @@ const TERMINAL_INGEST_SECRET = String(process.env.TERMINAL_INGEST_SECRET || '').
 const TERMINAL_REPLACE_ALL_ON_INGEST =
   /^(1|true|yes|on)$/i.test(String(process.env.TERMINAL_REPLACE_ALL_ON_INGEST || '').trim())
 
+/** Railway / reverse proxy: so req.secure and cookies work for HTTPS login → WebSocket */
+const TRUST_PROXY = process.env.TRUST_PROXY !== '0'
+
+function parseCookieHeader(cookieHeader) {
+  /** @type {Record<string, string>} */
+  const out = {}
+  if (!cookieHeader || typeof cookieHeader !== 'string') return out
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=')
+    if (idx === -1) continue
+    const k = part.slice(0, idx).trim()
+    const v = part.slice(idx + 1).trim()
+    if (k) out[k] = v
+  }
+  return out
+}
+
+/** JSON.stringify replacer: BigInt / odd values from book APIs must not crash broadcasts */
+function jsonSafeReplacer(_key, value) {
+  if (typeof value === 'bigint') return value.toString()
+  if (typeof value === 'function' || typeof value === 'symbol') return undefined
+  return value
+}
+
 // Same sort as scraper broadcast: event_id then market (moneyline, spread, total)
 const MARKET_ORDER = { moneyline: 0, spread: 1, total: 2 }
 function sortByEventThenMarket(entries) {
@@ -91,15 +115,30 @@ function mergeAndBroadcast() {
   const merged = Object.values(lastBySource).flat()
   const sorted = sortByEventThenMarket(merged)
   const sources = getSourceStatsForSlots()
-  const payload = JSON.stringify({
-    type: 'odds',
-    data: sorted,
-    ts: Date.now(),
-    sources,
-    leagueWatcher: lastLeagueWatcher
-  })
+  let payload
+  try {
+    payload = JSON.stringify(
+      {
+        type: 'odds',
+        data: sorted,
+        ts: Date.now(),
+        sources,
+        leagueWatcher: lastLeagueWatcher
+      },
+      jsonSafeReplacer
+    )
+  } catch (e) {
+    console.error('[Terminal] mergeAndBroadcast JSON error:', e.message)
+    return
+  }
   for (const ws of viewers) {
-    if (ws.readyState === 1) ws.send(payload)
+    if (ws.readyState === 1) {
+      try {
+        ws.send(payload)
+      } catch (err) {
+        console.error('[Terminal] ws.send error:', err.message)
+      }
+    }
   }
 }
 
@@ -123,14 +162,24 @@ function buildOddsCsv(entries) {
 }
 
 const app = express()
+if (TRUST_PROXY) app.set('trust proxy', 1)
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: false }))
 app.use('/assets', express.static(path.join(__dirname, '../public')))
 
 function isAuthed(req) {
   if (!LOGIN_PASSWORD) return true
-  const cookie = req.headers.cookie || ''
-  return cookie.split(';').some((p) => p.trim() === 'ol_auth=1')
+  const cookies = parseCookieHeader(req.headers.cookie || '')
+  return cookies.ol_auth === '1'
+}
+
+function requestIsHttps(req) {
+  if (req.secure) return true
+  const xf = String(req.get('x-forwarded-proto') || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase()
+  return xf === 'https'
 }
 
 app.post('/ingest', (req, res) => {
@@ -428,6 +477,7 @@ app.get('/', (req, res) => {
           </div>
         </div>
         <div class="section-title">Live feed (WebSocket) <span id="totalOdds" class="total-odds">—</span></div>
+        <p id="wsStatus" class="ws-status" style="display:none; color:#f87171; font-size:0.85rem; margin:0 0 0.65rem 0; max-width:42rem;"></p>
         <div class="table-wrap">
           <table id="oddsTable">
             <thead>
@@ -450,9 +500,10 @@ app.get('/', (req, res) => {
       </div>
       <script>
         const wsProtocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
-        const ws = new WebSocket(wsProtocol + location.host)
+        const ws = new WebSocket(wsProtocol + location.host + '/')
         const tbody = document.querySelector('#oddsTable tbody')
         const totalOddsEl = document.getElementById('totalOdds')
+        const wsStatusEl = document.getElementById('wsStatus')
         const lwGrid = document.getElementById('leagueWatcherGrid')
         const lwUpdated = document.getElementById('lwUpdated')
         ;(function setupIntroAnimation() {
@@ -587,8 +638,30 @@ app.get('/', (req, res) => {
             lwGrid.appendChild(card)
           })
         }
+        ws.onopen = function () {
+          if (wsStatusEl) wsStatusEl.style.display = 'none'
+        }
+        ws.onerror = function () {
+          if (!wsStatusEl) return
+          wsStatusEl.textContent =
+            'WebSocket could not connect. If you use a terminal password: log in, then hard-refresh (Cmd/Ctrl+Shift+R). Otherwise check Railway logs for upgrade errors. Ingest may still work — open /health or Export CSV.'
+          wsStatusEl.style.display = 'block'
+        }
+        ws.onclose = function (ev) {
+          if (!wsStatusEl || ev.wasClean) return
+          if (wsStatusEl.style.display === 'none') {
+            wsStatusEl.textContent =
+              'WebSocket disconnected (code ' + ev.code + '). Reload the page. Data may still update after reconnect.'
+            wsStatusEl.style.display = 'block'
+          }
+        }
         ws.onmessage = (e) => {
-          const msg = JSON.parse(e.data)
+          let msg
+          try {
+            msg = JSON.parse(e.data)
+          } catch (_) {
+            return
+          }
           if (msg.type !== 'odds') return
           const data = Array.isArray(msg.data) ? msg.data : []
           totalOddsEl.textContent = data.length
@@ -623,7 +696,9 @@ app.post('/login', (req, res) => {
   if (!password || password !== LOGIN_PASSWORD) {
     return res.redirect('/')
   }
-  res.setHeader('Set-Cookie', 'ol_auth=1; Path=/; HttpOnly; SameSite=Lax')
+  const parts = ['ol_auth=1', 'Path=/', 'HttpOnly', 'SameSite=Lax']
+  if (requestIsHttps(req)) parts.push('Secure')
+  res.setHeader('Set-Cookie', parts.join('; '))
   res.redirect('/')
 })
 
@@ -644,18 +719,23 @@ const httpServer = createServer(app)
 const wss = new WebSocketServer({ noServer: true })
 
 httpServer.on('upgrade', (request, socket, head) => {
-  const path = request.url?.split('?')[0]
-  if (path === '/' || path === '') {
-    if (!isAuthed(request)) {
-      socket.destroy()
-      return
-    }
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request)
-    })
-  } else {
+  const pathname = (request.url || '/').split('?')[0] || '/'
+  if (pathname !== '/' && pathname !== '') {
     socket.destroy()
+    return
   }
+  if (LOGIN_PASSWORD && !isAuthed(request)) {
+    console.warn(
+      '[Terminal] WebSocket upgrade rejected: missing ol_auth cookie (log in via / then reload; HTTPS needs Secure cookie — trust proxy enabled:',
+      TRUST_PROXY,
+      ')'
+    )
+    socket.destroy()
+    return
+  }
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit('connection', ws, request)
+  })
 })
 
 wss.on('connection', (ws, req) => {
@@ -664,7 +744,15 @@ wss.on('connection', (ws, req) => {
   const merged = Object.values(lastBySource).flat()
   const sorted = sortByEventThenMarket(merged)
   const sources = getSourceStatsForSlots()
-  ws.send(JSON.stringify({ type: 'odds', data: sorted, ts: Date.now(), sources, leagueWatcher: lastLeagueWatcher }))
+  try {
+    const snap = JSON.stringify(
+      { type: 'odds', data: sorted, ts: Date.now(), sources, leagueWatcher: lastLeagueWatcher },
+      jsonSafeReplacer
+    )
+    ws.send(snap)
+  } catch (e) {
+    console.error('[Terminal] Initial WS snapshot failed:', e.message)
+  }
   ws.on('close', () => viewers.delete(ws))
   ws.on('error', () => viewers.delete(ws))
 })

@@ -40,3 +40,10 @@ While this flag is on, **empty** `data: []` ingests are **ignored** (no clear, n
 ## Deploy (e.g. Railway)
 
 Deploy the `terminal` folder as its own service. Set `PORT` if needed (Railway sets it). Use the service’s public URL as `TERMINAL_URL` in your scrapers, and connect your website to `wss://<that-url>` for the live feed.
+
+### Blank table but scrapers “push OK”?
+
+1. Open **`/health`** — if `sources` &gt; 0, data is in memory; the issue is usually the **browser WebSocket** (not ingest).
+2. If **`TERMINAL_LOGIN_PASSWORD`** is set on Railway: log in, then **hard-refresh** so the `Secure` session cookie is sent on the `wss://` handshake. The app uses **`trust proxy`** (disable with `TRUST_PROXY=0` only for local HTTP).
+3. Try **Export CSV** — if rows appear, ingest works; fix WebSocket/auth as above.
+4. Scrapers must get **HTTP 200** from `POST /ingest` (check logs for `Pushed N entries`). **401** = fix `TERMINAL_INGEST_SECRET` on both sides (no extra spaces).
