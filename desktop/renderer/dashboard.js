@@ -14,6 +14,7 @@
   const bannerDisengaged = document.getElementById('bannerDisengaged')
   const bannerReconnect = document.getElementById('bannerReconnect')
   const openTerminal = document.getElementById('openTerminal')
+  const appVersionEl = document.getElementById('appVersion')
 
   let ws = null
   let msgCount = 0
@@ -178,6 +179,7 @@
     const info = await window.olScraper.getDashboardInfo()
     wsUrl = 'ws://127.0.0.1:' + (info.wsPort || 8765)
     wsLabel.textContent = wsUrl
+    if (info.appVersion) appVersionEl.textContent = 'App v' + info.appVersion
     bannerDisengaged.style.display = info.pushingEnabled === false ? 'block' : 'none'
     outputEl.textContent =
       'Connect to receive odds. SOURCE_ID: ' + (info.sourceId || '(none)') + '\nTerminal: ' + (info.terminalUrl || '(none)')

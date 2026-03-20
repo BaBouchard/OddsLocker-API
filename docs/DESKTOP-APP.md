@@ -26,7 +26,13 @@ npm install
 npm run dist
 ```
 
-Output: **`desktop/release/OddsLocker Scraper-Setup-1.0.0.exe`** (name follows `artifactName` in `desktop/package.json`).
+Output: **`desktop/release/OddsLocker Scraper-Setup-<version>.exe`** — `<version>` is **`version`** in `desktop/package.json` (bump it before each installer release so filenames match what you shipped).
+
+The dashboard shows **App v…** (same number as `desktop/package.json`) under the subtitle so you can confirm the running build.
+
+### Installer version
+
+Before each release build, bump **`version`** in **`desktop/package.json`** (e.g. `1.1.0` → `1.2.0`). Electron Builder names the file **`OddsLocker Scraper-Setup-<version>.exe`**. Use **semver**: patch for small fixes, minor for new features, major for breaking changes.
 
 - **`npm run predist`** runs automatically before `dist` and rebuilds `../dist/live-odds-scraper.exe`.
 - Building the **installer** is typically done on **Windows** (electron-builder NSIS). You can run `npm run dist` on macOS only if your toolchain supports it; for fewer surprises, use Windows for release builds.
@@ -37,7 +43,7 @@ Quick unpacked folder (no installer): `cd desktop && npm run dist:dir`.
 
 1. Run **OddsLocker Scraper Setup.exe** → install → launch from desktop shortcut.
 2. **Setup wizard**: select **VPS 2** (or any slot), paste terminal **HTTPS URL**, optional **TERMINAL_INGEST_SECRET**, **Choose .env** (copy from a working scraper).
-3. **Finish & start** → main window loads your hosted terminal; scraper pushes as `SOURCE_ID=vps2` (or chosen slot).
+3. **Finish & start** → main window shows the **local scraper dashboard**; scraper pushes as `SOURCE_ID=vps2` (or chosen slot).
 
 **File → Settings** reopens the wizard (you can change slot/URL; re-import `.env` only if you need to update book secrets).
 

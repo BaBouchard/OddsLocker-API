@@ -33,11 +33,12 @@
     td { padding: 6px 10px; border-bottom: 1px solid #1e2834; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d0dae3; }
     td.num { text-align: right; }
     a.link { color: #6eb3ff; cursor: pointer; text-decoration: underline; }
+    .ver { color: #6b7d8f; font-size: 0.8rem; }
   </style>
 </head>
 <body>
   <h1>Local scraper feed</h1>
-  <p class="sub">Live WebSocket from this PC’s scraper (<code id="wsLabel">ws://127.0.0.1:8765</code>). Open the <span class="link" id="openTerminal">hosted terminal in your browser</span> for the full grid.</p>
+  <p class="sub">Live WebSocket from this PC’s scraper (<code id="wsLabel">ws://127.0.0.1:8765</code>). Open the <span class="link" id="openTerminal">hosted terminal in your browser</span> for the full grid. <span class="ver" id="appVersion"></span></p>
 
   <div id="bannerDisengaged" class="banner warn" style="display:none;">
     <strong>Disengaged</strong> — the scraper process is not running, so there is no local feed. Use <strong>Scraper → Resume pushing</strong> to start it.

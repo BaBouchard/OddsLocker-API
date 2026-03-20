@@ -303,6 +303,7 @@ ipcMain.handle('dashboard:get-info', () => {
   const portRaw = readEnvKeyFromUserData('WS_SERVER_PORT', '8765')
   const wsPort = Number(portRaw) || 8765
   return {
+    appVersion: app.getVersion(),
     wsPort,
     sourceId: cfg.sourceId || '',
     terminalUrl: normalizeTerminalUrl(cfg.terminalUrl || ''),
