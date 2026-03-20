@@ -239,7 +239,9 @@ function createMainWindow(terminalUrl) {
     dialog.showErrorBox('Terminal load failed', String(err.message || err))
   })
 
-  mainWindow.once('ready-to-show', () => mainWindow.show())
+  // Parent window has no loaded page (only BrowserView does) — ready-to-show often never fires.
+  mainWindow.show()
+  mainWindow.focus()
 
   setApplicationMenu()
 
