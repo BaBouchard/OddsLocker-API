@@ -1,11 +1,10 @@
-const { app, BrowserWindow, BrowserView, ipcMain, dialog, Menu, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { spawn } = require('child_process')
 
 const CONFIG_NAME = 'config.json'
 let mainWindow = null
-let browserView = null
 let scraperProcess = null
 let setupWindow = null
 
@@ -29,6 +28,27 @@ function saveConfig(cfg) {
 }
 
 /** Remove existing keys from .env text and append overrides */
+/** Read a key from userData `.env` (KEY=value), strip optional quotes. */
+function readEnvKeyFromUserData(key, defaultVal) {
+  try {
+    const text = fs.readFileSync(userDataPath('.env'), 'utf8')
+    for (const line of text.split(/\r?\n/)) {
+      const t = line.trim()
+      if (!t || t.startsWith('#')) continue
+      const eq = t.indexOf('=')
+      if (eq === -1) continue
+      const k = t.slice(0, eq).trim()
+      if (k !== key) continue
+      let v = t.slice(eq + 1).trim()
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        v = v.slice(1, -1)
+      }
+      return v || defaultVal
+    }
+  } catch (_) {}
+  return defaultVal
+}
+
 function mergeEnvContent(existingContent, { sourceId, terminalUrl, ingestSecret }) {
   const keysToOverride = new Set(['SOURCE_ID', 'TERMINAL_URL', 'TERMINAL_INGEST_SECRET'])
   const lines = (existingContent || '').split(/\r?\n/)
@@ -100,12 +120,19 @@ function startScraper() {
 }
 
 /** Stop POSTing to the terminal; persists until Resume (safe before moving this slot to another PC). */
+function refreshDashboardIfOpen() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.reloadIgnoringCache()
+  }
+}
+
 function disengagePushing() {
   stopScraper()
   const cfg = loadConfig()
   saveConfig({ ...cfg, pushingEnabled: false })
   updateMainWindowTitle()
   setApplicationMenu()
+  refreshDashboardIfOpen()
 }
 
 function resumePushing() {
@@ -114,6 +141,7 @@ function resumePushing() {
   startScraper()
   updateMainWindowTitle()
   setApplicationMenu()
+  refreshDashboardIfOpen()
 }
 
 function updateMainWindowTitle() {
@@ -162,6 +190,7 @@ function setApplicationMenu() {
             if (!isPushingEnabled()) return
             startScraper()
             setApplicationMenu()
+            refreshDashboardIfOpen()
           }
         }
       ]
@@ -170,20 +199,28 @@ function setApplicationMenu() {
       label: 'View',
       submenu: [
         {
-          label: 'Reload terminal',
+          label: 'Reload dashboard',
           accelerator: 'CmdOrCtrl+R',
-          click: () => browserView?.webContents.reloadIgnoringCache()
+          click: () => mainWindow?.webContents.reloadIgnoringCache()
         },
         { type: 'separator' },
         {
-          label: 'Toggle DevTools (terminal)',
-          click: () => browserView?.webContents.toggleDevTools()
+          label: 'Toggle DevTools',
+          click: () => mainWindow?.webContents.toggleDevTools()
         }
       ]
     },
     {
       label: 'Help',
       submenu: [
+        {
+          label: 'Open hosted terminal in browser',
+          click: () => {
+            const u = normalizeTerminalUrl(loadConfig().terminalUrl || '')
+            if (u) shell.openExternal(u)
+            else dialog.showErrorBox('No terminal URL', 'Open File → Settings and save a terminal URL first.')
+          }
+        },
         {
           label: 'Open data folder',
           click: () => shell.openPath(app.getPath('userData'))
@@ -194,12 +231,6 @@ function setApplicationMenu() {
   Menu.setApplicationMenu(menu)
 }
 
-function layoutBrowserView() {
-  if (!mainWindow || !browserView) return
-  const { width, height } = mainWindow.getContentBounds()
-  browserView.setBounds({ x: 0, y: 0, width, height })
-}
-
 function normalizeTerminalUrl(url) {
   let u = (url || '').trim()
   if (!u) return ''
@@ -207,7 +238,7 @@ function normalizeTerminalUrl(url) {
   return u.replace(/\/$/, '')
 }
 
-function createMainWindow(terminalUrl) {
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,
@@ -217,29 +248,18 @@ function createMainWindow(terminalUrl) {
     title: 'OddsLocker Scraper',
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload-dashboard.cjs')
     }
   })
-
-  browserView = new BrowserView({
-    webPreferences: {
-      partition: 'persist:oddslocker-terminal',
-      sandbox: true,
-      contextIsolation: true
-    }
-  })
-  mainWindow.setBrowserView(browserView)
-  layoutBrowserView()
-  mainWindow.on('resize', layoutBrowserView)
 
   updateMainWindowTitle()
 
-  browserView.webContents.loadURL(terminalUrl).catch((err) => {
-    console.error('Failed to load terminal:', err)
-    dialog.showErrorBox('Terminal load failed', String(err.message || err))
+  mainWindow.loadFile(path.join(__dirname, 'renderer', 'dashboard.html')).catch((err) => {
+    console.error('Failed to load dashboard:', err)
+    dialog.showErrorBox('Dashboard load failed', String(err.message || err))
   })
 
-  // Parent window has no loaded page (only BrowserView does) — ready-to-show often never fires.
   mainWindow.show()
   mainWindow.focus()
 
@@ -247,7 +267,6 @@ function createMainWindow(terminalUrl) {
 
   mainWindow.on('closed', () => {
     mainWindow = null
-    browserView = null
   })
 }
 
@@ -264,7 +283,7 @@ function openSetupWindow({ settings = false } = {}) {
     parent: mainWindow || undefined,
     title: settings ? 'OddsLocker — Settings' : 'OddsLocker — Setup',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(__dirname, 'preload-setup.cjs'),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -278,6 +297,25 @@ function openSetupWindow({ settings = false } = {}) {
 }
 
 ipcMain.handle('config:load', () => loadConfig())
+
+ipcMain.handle('dashboard:get-info', () => {
+  const cfg = loadConfig()
+  const portRaw = readEnvKeyFromUserData('WS_SERVER_PORT', '8765')
+  const wsPort = Number(portRaw) || 8765
+  return {
+    wsPort,
+    sourceId: cfg.sourceId || '',
+    terminalUrl: normalizeTerminalUrl(cfg.terminalUrl || ''),
+    pushingEnabled: cfg.pushingEnabled !== false
+  }
+})
+
+ipcMain.handle('dashboard:open-hosted-terminal', () => {
+  const u = normalizeTerminalUrl(loadConfig().terminalUrl || '')
+  if (!u) return { ok: false, error: 'No terminal URL configured.' }
+  shell.openExternal(u)
+  return { ok: true }
+})
 
 ipcMain.handle('config:pick-env', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -339,9 +377,9 @@ ipcMain.handle('setup:save', async (_evt, payload) => {
   if (setupWindow && !setupWindow.isDestroyed()) setupWindow.close()
 
   if (!mainWindow || mainWindow.isDestroyed()) {
-    createMainWindow(url)
+    createMainWindow()
   } else {
-    browserView?.webContents.loadURL(url).catch(console.error)
+    mainWindow.webContents.reloadIgnoringCache()
     updateMainWindowTitle()
   }
 
@@ -374,7 +412,7 @@ if (!gotLock) {
 app.whenReady().then(() => {
   const cfg = loadConfig()
   if (cfg.setupComplete && cfg.terminalUrl) {
-    createMainWindow(normalizeTerminalUrl(cfg.terminalUrl))
+    createMainWindow()
     if (cfg.pushingEnabled !== false) startScraper()
   } else {
     firstRunFlow()
@@ -396,7 +434,7 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     const cfg = loadConfig()
     if (cfg.setupComplete && cfg.terminalUrl) {
-      createMainWindow(normalizeTerminalUrl(cfg.terminalUrl))
+      createMainWindow()
       if (cfg.pushingEnabled !== false) startScraper()
     } else {
       firstRunFlow()

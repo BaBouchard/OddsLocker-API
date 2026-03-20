@@ -4,7 +4,8 @@ Windowed app with:
 
 - **NSIS installer** (desktop shortcut, Start Menu, choose install folder).
 - **First-run setup wizard**: pick **VPS 1–6**, enter **central terminal URL**, optional **ingest secret**, import **`.env`** (same book keys as your VPS).
-- **Main window**: embedded **hosted OddsLocker terminal** (same site as Railway) so you see the full grid, login, and live feed. Session cookies persist in the app.
+- **Main window**: **scraper dashboard** — connects to **`ws://127.0.0.1:<WS_SERVER_PORT>`** (default **8765**, from your merged `.env`) and shows the same **odds / auto-poll / fetch-once / book checkboxes** behavior as `test-client.html`. This is **this machine’s** scraper, not the hosted site.
+- **Hosted terminal**: open in your **system browser** via **Help → Open hosted terminal in browser** (or the link on the dashboard). Login and cookies stay in the browser.
 - **Background**: packaged **`scraper.exe`** runs with **no console**; reads merged **`.env`** from the app data folder.
 
 > The **installer** copies the application. **Which VPS slot** is chosen in the **setup wizard on first launch** (and can be changed anytime under **File → Settings**). Fully custom NSIS pages are possible later; the wizard is the reliable cross-platform approach.
@@ -65,7 +66,7 @@ npm install
 npm start
 ```
 
-On **macOS**, `../dist/live-odds-scraper.exe` may be missing or not runnable; the app still opens the setup window and terminal view. Build the `.exe` on Windows or cross-compile from the repo root for a real scraper spawn test.
+On **macOS**, `../dist/live-odds-scraper.exe` may be missing or not runnable; the app still opens the setup window and dashboard (WebSocket will not connect until a scraper is listening on the port). Build the `.exe` on Windows or cross-compile from the repo root for a real scraper spawn test.
 
 ## Disengage / move a VPS slot to another PC
 
@@ -75,7 +76,7 @@ The terminal remembers the **last ingest per `SOURCE_ID`**. If two machines both
 
 1. On the **old** PC: **Scraper → Disengage (stop pushing to terminal)** (or quit the app).  
    - This **kills** the scraper process and sets **`pushingEnabled: false`** in `config.json` so a **restart** of the app still **won’t** push until you choose **Resume pushing**.  
-   - The window can stay open; you still see the hosted terminal. Title shows **`(disengaged)`**.
+   - The window can stay open; the dashboard shows **disengaged** (no local WebSocket until you resume). Title shows **`(disengaged)`**.
 
 2. On the **new** PC: install/configure with **`SOURCE_ID=vps3`** (same `.env` / wizard) and use **Resume pushing** if that install was copied from a disengaged profile.
 
@@ -85,6 +86,6 @@ The dashboard may still show **stale** odds for that slot until the **new** devi
 
 ## Notes
 
-- **Terminal login**: If the hosted terminal uses a password, log in inside the embedded window once; cookies are kept in partition `persist:oddslocker-terminal`.
+- **Terminal login**: If the hosted terminal uses a password, log in in your **browser** after **Help → Open hosted terminal in browser**.
 - **SmartScreen**: Unsigned builds may trigger a warning; code-signing removes that for production.
 - **Single instance**: A second launch focuses the existing window.

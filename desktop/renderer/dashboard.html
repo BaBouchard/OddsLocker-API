@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ws://127.0.0.1:* ws://localhost:*" />
+  <title>OddsLocker Scraper</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; margin: 0; padding: 1rem 1.25rem 2rem; background: #0f1419; color: #e7ecf1; }
+    h1 { font-size: 1.2rem; margin: 0 0 0.35rem; font-weight: 600; }
+    .sub { color: #8b9aab; font-size: 0.9rem; margin-bottom: 1rem; }
+    .banner { padding: 0.65rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
+    .banner.warn { background: #3d2f1a; color: #f5d08a; border: 1px solid #6b5428; }
+    .banner.info { background: #1a2d3d; color: #9ec5e8; border: 1px solid #2a4a66; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 1rem; }
+    .status { padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.85rem; display: inline-block; }
+    .status.connected { background: #1e3d2a; color: #8fd9a8; }
+    .status.disconnected { background: #3d1e24; color: #f0a0a8; }
+    .status.connecting { background: #3d3518; color: #f0d78a; }
+    button { padding: 0.45rem 0.9rem; cursor: pointer; border-radius: 6px; border: 1px solid #3d4d5c; background: #1c2630; color: #e7ecf1; font-size: 0.875rem; }
+    button:hover { background: #243240; }
+    button.primary { background: #1a4d7a; border-color: #2a6aaa; }
+    button.primary:hover { background: #225a8f; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; margin: 0.75rem 0 1rem; font-size: 0.875rem; color: #b8c4d0; }
+    .controls label { cursor: pointer; user-select: none; }
+    .meta { color: #8b9aab; font-size: 0.8rem; margin-bottom: 0.75rem; }
+    pre { background: #151c24; padding: 1rem; border-radius: 8px; overflow: auto; max-height: 38vh; font-size: 11px; border: 1px solid #243040; color: #c5d0da; }
+    h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; font-weight: 600; color: #c5d0da; }
+    .table-wrap { max-height: 320px; overflow: auto; border: 1px solid #243040; border-radius: 8px; margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+    thead { position: sticky; top: 0; background: #1a222c; z-index: 1; }
+    th { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a3544; color: #9eb0c0; font-weight: 600; }
+    td { padding: 6px 10px; border-bottom: 1px solid #1e2834; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d0dae3; }
+    td.num { text-align: right; }
+    a.link { color: #6eb3ff; cursor: pointer; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Local scraper feed</h1>
+  <p class="sub">Live WebSocket from this PC’s scraper (<code id="wsLabel">ws://127.0.0.1:8765</code>). Open the <span class="link" id="openTerminal">hosted terminal in your browser</span> for the full grid.</p>
+
+  <div id="bannerDisengaged" class="banner warn" style="display:none;">
+    <strong>Disengaged</strong> — the scraper process is not running, so there is no local feed. Use <strong>Scraper → Resume pushing</strong> to start it.
+  </div>
+  <div id="bannerReconnect" class="banner info" style="display:none;"></div>
+
+  <div class="toolbar">
+    <span id="status" class="status disconnected">Disconnected</span>
+    <button type="button" id="connect">Connect</button>
+    <button type="button" id="disconnect">Disconnect</button>
+  </div>
+
+  <div class="controls">
+    <label><input type="checkbox" id="autoPoll" checked /> Auto poll (2–4 s)</label>
+    <span id="bookCheckboxesWrap">Sportsbooks: </span>
+    <button type="button" id="fetchOnce">Fetch once</button>
+  </div>
+  <div class="meta">Messages: <span id="count">0</span> · Last update: <span id="last">—</span> · Poll requests: <span id="pollRequests">—</span></div>
+
+  <h2>Latest odds (normalized)</h2>
+  <div class="table-wrap">
+    <table id="oddsTable">
+      <thead>
+        <tr>
+          <th style="width:14.28%">Sport</th>
+          <th style="width:14.28%">League</th>
+          <th style="width:14.28%">Event</th>
+          <th style="width:14.28%">Sportsbook</th>
+          <th style="width:14.28%">Market</th>
+          <th style="width:14.28%">Outcome</th>
+          <th style="width:14.28%">Odds (US)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h2>Raw last message</h2>
+  <pre id="output">Loading…</pre>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
