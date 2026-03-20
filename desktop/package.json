@@ -52,8 +52,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "OddsLocker Scraper",
-      "installerHeader": "OddsLocker Scraper"
+      "shortcutName": "OddsLocker Scraper"
     }
   }
 }
