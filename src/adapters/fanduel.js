@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { BaseAdapter } from './base.js'
-import { createNormalizedEntry } from '../schema.js'
+import { createNormalizedEntry, normalizeLeague } from '../schema.js'
 
 /** Map FanDuel marketType / marketName to normalized market_type slug. */
 function toMarketType(marketType, marketName) {
@@ -67,7 +67,6 @@ export class FanDuelAdapter extends BaseAdapter {
     const url = this.config.pollUrl || process.env.FANDUEL_POLL_URL
     const sportsbook = this.config.sportsbookName || 'FanDuel'
     const defaultSport = this.config.sportKey || 'basketball'
-    const defaultLeague = this.config.leagueTitle || 'NBA'
 
     try {
       const region = this.config.region ?? process.env.FANDUEL_REGION ?? 'US'
@@ -113,7 +112,7 @@ export class FanDuelAdapter extends BaseAdapter {
         return
       }
       if (shouldDebug) fs.writeFileSync(debugPath, JSON.stringify(data, null, 2), 'utf8')
-      const entries = this.parseResponse(data, { sportsbook, defaultSport, defaultLeague })
+      const entries = this.parseResponse(data, { sportsbook, defaultSport })
       if (entries.length === 0 && data) {
         const att = data.attachments || {}
         const firstEvent = att.events ? Object.values(att.events)[0] : null
@@ -135,7 +134,7 @@ export class FanDuelAdapter extends BaseAdapter {
   }
 
   parseResponse(data, opts = {}) {
-    const { sportsbook, defaultSport, defaultLeague } = opts
+    const { sportsbook, defaultSport } = opts
     const entries = []
     if (!data || typeof data !== 'object') return entries
 
@@ -179,7 +178,7 @@ export class FanDuelAdapter extends BaseAdapter {
       const eventId = ev.eventId ?? ev.event_id ?? eventIdRaw
       const compId = ev.competitionId ?? ev.competition_id ?? market.competitionId ?? market.competition_id
       const comp = competitions[compId] || competitions[String(compId)] || {}
-      const league = comp.name || comp.displayName || defaultLeague
+      const league = normalizeLeague(comp.name || comp.displayName)
       const sport = defaultSport
 
       const eventName = ev.name ?? ev.eventName ?? ''

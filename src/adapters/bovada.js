@@ -70,7 +70,6 @@ export class BovadaAdapter extends BaseAdapter {
     const url = this.config.pollUrl || process.env.BOVADA_POLL_URL
     const sportsbook = this.config.sportsbookName || 'Bovada'
     const defaultSport = this.config.sportKey || 'basketball'
-    const defaultLeague = this.config.leagueTitle || 'NBA'
     const baseUrl = (this.config.bookmakerBaseUrl || 'https://www.bovada.lv').replace(/\/?$/, '')
 
     try {
@@ -98,11 +97,10 @@ export class BovadaAdapter extends BaseAdapter {
         return
       }
       const pathGroups = Array.isArray(data) ? data : [data]
-      const leagueWatcher = buildBovadaLeagueWatcher(pathGroups, { defaultSport, defaultLeague })
+      const leagueWatcher = buildBovadaLeagueWatcher(pathGroups, { defaultSport })
       const entries = this.parseResponse(pathGroups, {
         sportsbook,
         defaultSport,
-        defaultLeague,
         baseUrl
       })
       this._onOdds(entries, { pollRequests: 1, leagueWatcher })
@@ -112,7 +110,7 @@ export class BovadaAdapter extends BaseAdapter {
   }
 
   parseResponse(pathGroups, opts = {}) {
-    const { sportsbook, defaultSport, defaultLeague, baseUrl } = opts
+    const { sportsbook, defaultSport, baseUrl } = opts
     const entries = []
     if (!Array.isArray(pathGroups)) return entries
 
@@ -121,7 +119,8 @@ export class BovadaAdapter extends BaseAdapter {
       const leaguePath = pathSegments.find((p) => p.type === 'LEAGUE')
       const sportPath = pathSegments.find((p) => p.type === 'SPORT')
       const pathSportDescription = sportPath?.description || null
-      const league = leaguePath?.description || defaultLeague
+      const league =
+        (leaguePath?.description && String(leaguePath.description).trim()) || 'Other'
 
       const events = group.events || []
       for (const ev of events) {

@@ -11,7 +11,7 @@
  * and override parseResponse() for your sportsbook's structure.
  */
 import { BaseAdapter } from './base.js'
-import { createNormalizedEntry } from '../schema.js'
+import { createNormalizedEntry, normalizeLeague } from '../schema.js'
 
 export class ScrapeAdapter extends BaseAdapter {
   constructor(config = {}) {
@@ -106,7 +106,6 @@ export class ScrapeAdapter extends BaseAdapter {
     if (!Array.isArray(events)) return []
     const entries = []
     const sport = this.config.sportKey || leagueKey
-    const league = this.config.leagueTitle || leagueKey
     const sportsbook = this.config.sportsbookName || 'sportsbook'
     const marketMap = { h2h: 'moneyline', spreads: 'spread', totals: 'total', moneyline: 'moneyline', spread: 'spread', total: 'total' }
 
@@ -115,6 +114,9 @@ export class ScrapeAdapter extends BaseAdapter {
       if (!status.includes('live') && !status.includes('inprogress') && status !== 'in progress') continue
 
       const eventId = ev.id || ev.eventId || ev.event_id || `${(ev.home_team || ev.homeTeam || '').replace(/\s/g, '')}_${(ev.away_team || ev.awayTeam || '').replace(/\s/g, '')}`
+      const league = normalizeLeague(
+        ev.league ?? ev.leagueName ?? ev.competition ?? ev.competitionName ?? ev.tournament ?? ev.group
+      )
       const homeTeam = ev.home_team ?? ev.homeTeam ?? ev.home
       const awayTeam = ev.away_team ?? ev.awayTeam ?? ev.away
       const bookmakers = ev.bookmakers ?? ev.markets ?? [ev]

@@ -1,4 +1,16 @@
 /**
+ * When the book does not provide a competition/league name, use this (never guess "NBA").
+ * @param {unknown} league
+ * @returns {string}
+ */
+export function normalizeLeague(league) {
+  if (league == null) return 'Other'
+  const s = String(league).trim()
+  if (!s) return 'Other'
+  return s
+}
+
+/**
  * Normalized odds entry - matches sports-betting-website odds_data / store API.
  * All adapters must output this shape for compatibility with arbitrage ingestion.
  */
@@ -21,7 +33,7 @@ export function createNormalizedEntry({
   const dec = odds_decimal ?? americanToDecimal(odds_american)
   return {
     sport: sport || 'unknown',
-    league: league || null,
+    league: normalizeLeague(league),
     event_id,
     home_team: home_team || null,
     away_team: away_team || null,

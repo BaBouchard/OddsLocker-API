@@ -45,7 +45,7 @@ export class MockAdapter extends BaseAdapter {
     if (!this._running || !this._onOdds) return
     const sportsbook = this.config.sportsbookName || 'mock_book'
     const sport = this.config.sportKey || 'basketball'
-    const league = this.config.leagueTitle || 'NBA'
+    const league = this.config.leagueTitle || 'Other'
     const entries = []
     for (const ev of MOCK_EVENTS) {
       for (const market of MOCK_MARKETS) {

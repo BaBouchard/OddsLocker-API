@@ -10,6 +10,7 @@ import { BetMGMAdapter } from './adapters/betmgm.js'
 import { EightEightEightAdapter } from './adapters/eightsport.js'
 import { MockAdapter } from './adapters/mock.js'
 import { ScrapeAdapter } from './adapters/scrape.js'
+import { mergeSnapshotWithPersistentCache } from './league-watcher-cache.js'
 
 const LEAGUE_KEY = process.env.LEAGUE_KEY || 'basketball_nba'
 const WS_PORT = Number(process.env.WS_SERVER_PORT) || 8765
@@ -65,7 +66,7 @@ function getBookConfigs() {
   }
   if (process.env.FANDUEL_POLL_URL) {
     const fdSport = process.env.FANDUEL_SPORT || process.env.SPORT_KEY || 'basketball'
-    const fdLeague = process.env.FANDUEL_LEAGUE || 'NBA'
+    const fdLeague = process.env.FANDUEL_LEAGUE || 'Other'
     books.push({
       bookId: 'fanduel',
       name: process.env.FANDUEL_NAME || 'FanDuel',
@@ -82,7 +83,7 @@ function getBookConfigs() {
   }
   if (process.env.BOVADA_POLL_URL) {
     const bvSport = process.env.BOVADA_SPORT || process.env.SPORT_KEY || 'basketball'
-    const bvLeague = process.env.BOVADA_LEAGUE || 'NBA'
+    const bvLeague = process.env.BOVADA_LEAGUE || 'Other'
     books.push({
       bookId: 'bovada',
       name: process.env.BOVADA_NAME || 'Bovada',
@@ -214,7 +215,7 @@ function selectAdapter() {
     pollIntervalMs: process.env.POLL_INTERVAL_MS || 3000,
     sportsbookName: 'mock_live',
     sportKey: 'basketball',
-    leagueTitle: 'NBA'
+    leagueTitle: 'Other'
   })
 }
 
@@ -266,7 +267,7 @@ async function main() {
       } else {
         merged = Object.values(lastEntriesByBook).flat()
       }
-      server.broadcast(merged)
+      server.broadcast(merged, { leagueWatcher: lastLeagueWatcher })
       if (PUSH_URL) pushToApi(merged, PUSH_URL, PUSH_KEY)
       if (TERMINAL_URL) {
         pushToTerminal(merged, TERMINAL_URL, SOURCE_ID, {
@@ -291,7 +292,9 @@ async function main() {
       adapters.push(adapter)
       await adapter.start(LEAGUE_KEY, (entries, meta) => {
         lastEntriesByBook[bookKey] = Array.isArray(entries) ? entries : []
-        if (meta?.leagueWatcher) lastLeagueWatcher = meta.leagueWatcher
+        if (meta?.leagueWatcher) {
+          lastLeagueWatcher = mergeSnapshotWithPersistentCache(meta.leagueWatcher)
+        }
         mergeAndBroadcast()
       })
       console.log(`[LiveOdds] Adapter "${adapter.name}" (${adapter.bookId}) started for ${bookKey} (league: ${LEAGUE_KEY})`)
@@ -330,10 +333,16 @@ async function main() {
   console.log(`[LiveOdds] WebSocket server listening on port ${WS_PORT}. Connect to ws://localhost:${WS_PORT}`)
 
   let lastLeagueWatcherSingle = null
-  const onOdds = (entries, meta) => {
-    server.broadcast(entries, meta)
+  const onOdds = (entries, meta = {}) => {
+    if (meta?.leagueWatcher) {
+      lastLeagueWatcherSingle = mergeSnapshotWithPersistentCache(meta.leagueWatcher)
+    }
+    const broadcastMeta = { ...meta }
+    if (lastLeagueWatcherSingle) {
+      broadcastMeta.leagueWatcher = lastLeagueWatcherSingle
+    }
+    server.broadcast(entries, broadcastMeta)
     if (PUSH_URL) pushToApi(entries, PUSH_URL, PUSH_KEY)
-    if (meta?.leagueWatcher) lastLeagueWatcherSingle = meta.leagueWatcher
     if (TERMINAL_URL) {
       pushToTerminal(entries, TERMINAL_URL, SOURCE_ID, {
         leagueWatcher: lastLeagueWatcherSingle || undefined

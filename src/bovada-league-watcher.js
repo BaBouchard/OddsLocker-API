@@ -41,12 +41,13 @@ function prettifySlug(slug) {
 
 /**
  * @param {unknown} pathGroups - Bovada response: array of { path, events }
- * @param {{ defaultSport?: string, defaultLeague?: string }} opts
+ * @param {{ defaultSport?: string }} opts
  * @returns {{ sports: Array<{ key: string, name: string, active: boolean, leagues: Array<{ key: string, name: string, active: boolean }> }>, updatedAt: number }}
  */
 export function buildBovadaLeagueWatcher(pathGroups, opts = {}) {
   const defaultSport = opts.defaultSport || 'other'
-  const defaultLeague = opts.defaultLeague || 'Other'
+  /** Never use env defaultLeague (e.g. NBA) when Bovada omits LEAGUE — that mislabels Golf etc. */
+  const FALLBACK_LEAGUE = 'Other'
   const groups = Array.isArray(pathGroups) ? pathGroups : pathGroups ? [pathGroups] : []
 
   /** @type {Map<string, { key: string, name: string, leagues: Map<string, { key: string, name: string, active: boolean }> }>} */
@@ -59,7 +60,8 @@ export function buildBovadaLeagueWatcher(pathGroups, opts = {}) {
     const sportPath = pathSegments.find((p) => p.type === 'SPORT')
     const events = Array.isArray(group.events) ? group.events : []
 
-    const leagueName = (leaguePath?.description && String(leaguePath.description).trim()) || defaultLeague
+    const leagueName =
+      (leaguePath?.description && String(leaguePath.description).trim()) || FALLBACK_LEAGUE
     const leagueKey = leagueName.toLowerCase()
 
     const firstEv = events[0]

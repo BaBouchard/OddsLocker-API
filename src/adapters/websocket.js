@@ -1,6 +1,6 @@
 import WebSocket from 'ws'
 import { BaseAdapter } from './base.js'
-import { createNormalizedEntry } from '../schema.js'
+import { createNormalizedEntry, normalizeLeague } from '../schema.js'
 
 export class WebSocketAdapter extends BaseAdapter {
   constructor(config = {}) {
@@ -13,10 +13,12 @@ export class WebSocketAdapter extends BaseAdapter {
     if (!data || !Array.isArray(data.events)) return []
     const entries = []
     const sport = this.config.sportKey || leagueKey
-    const league = this.config.leagueTitle || leagueKey
     const sportsbook = this.config.sportsbookName || 'sportsbook'
     for (const ev of data.events) {
       if (ev.status !== 'live' && ev.status !== 'inprogress') continue
+      const league = normalizeLeague(
+        ev.league ?? ev.league_name ?? ev.competitionName ?? ev.competition ?? ev.group
+      )
       const eventId = ev.id || ev.event_id || `${ev.home_team}_${ev.away_team}`
       for (const market of ev.markets || []) {
         const marketType = { h2h: 'moneyline', spreads: 'spread', totals: 'total' }[market.key || market.type] || market.key

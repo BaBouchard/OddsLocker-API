@@ -1,5 +1,5 @@
 import { BaseAdapter } from './base.js'
-import { createNormalizedEntry } from '../schema.js'
+import { createNormalizedEntry, normalizeLeague } from '../schema.js'
 
 const EXCLUDED_SPORTS = ['golf', 'darts']
 
@@ -124,7 +124,6 @@ export class PollAdapter extends BaseAdapter {
     if (!data) return []
     const entries = []
     const defaultSport = this.config.sportKey || leagueKey
-    const defaultLeague = this.config.leagueTitle || leagueKey
     const sportsbook = this.config.sportsbookName || 'sportsbook'
     const bookmakerBase =
       this.config.bookmakerBaseUrl ||
@@ -148,7 +147,7 @@ export class PollAdapter extends BaseAdapter {
 
         const eventId = ev.id
         const sport = (ev.sport || defaultSport || '').toLowerCase()
-        const league = ev.group || defaultLeague
+        const league = normalizeLeague(ev.group)
         const home = ev.homeName || ev.home_name
         const away = ev.awayName || ev.away_name
         const commence = ev.start
@@ -206,7 +205,7 @@ export class PollAdapter extends BaseAdapter {
 
         const eventId = ev.id
         const sport = (ev.sport || defaultSport || '').toLowerCase()
-        const league = ev.group || defaultLeague
+        const league = normalizeLeague(ev.group)
         const home = ev.homeName || ev.home_name
         const away = ev.awayName || ev.away_name
         const commence = ev.start
@@ -247,10 +246,10 @@ export class PollAdapter extends BaseAdapter {
     // Fallback: original expected shape with data.events[]
     if (!Array.isArray(data.events)) return []
     const sport = defaultSport
-    const league = defaultLeague
     for (const ev of data.events) {
       if (ev.status !== 'live' && ev.status !== 'inprogress') continue
       const eventId = ev.id || ev.event_id
+      const league = normalizeLeague(ev.league || ev.league_name || ev.competition || ev.sport_key)
       for (const bm of ev.bookmakers || []) {
         const book = bm.key || bm.title || sportsbook
         for (const market of bm.markets || []) {

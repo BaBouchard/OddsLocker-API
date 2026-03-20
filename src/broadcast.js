@@ -48,6 +48,7 @@ export function createBroadcastServer(port, opts = {}) {
     }
     if (meta && typeof meta === 'object') {
       if ('pollRequests' in meta) payloadObj.pollRequests = meta.pollRequests
+      if ('leagueWatcher' in meta) payloadObj.leagueWatcher = meta.leagueWatcher
     }
     const payload = JSON.stringify(payloadObj)
     for (const client of clients) {
