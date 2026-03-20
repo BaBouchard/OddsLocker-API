@@ -256,6 +256,7 @@ async function main() {
     const adapters = []
     let lastFetchBookIds = null // when set, broadcast only these books' entries (so "Fetch FanDuel only" shows only FanDuel)
     const bookIdToKey = Object.fromEntries(bookConfigs.map((b) => [b.bookId, b.config.sportsbookName]))
+    let lastLeagueWatcher = null // Bovada-only snapshot for terminal League Watcher (raw JSON derived)
 
     const mergeAndBroadcast = () => {
       let merged
@@ -267,7 +268,11 @@ async function main() {
       }
       server.broadcast(merged)
       if (PUSH_URL) pushToApi(merged, PUSH_URL, PUSH_KEY)
-      if (TERMINAL_URL) pushToTerminal(merged, TERMINAL_URL, SOURCE_ID)
+      if (TERMINAL_URL) {
+        pushToTerminal(merged, TERMINAL_URL, SOURCE_ID, {
+          leagueWatcher: lastLeagueWatcher || undefined
+        })
+      }
     }
 
     for (const book of bookConfigs) {
@@ -286,6 +291,7 @@ async function main() {
       adapters.push(adapter)
       await adapter.start(LEAGUE_KEY, (entries, meta) => {
         lastEntriesByBook[bookKey] = Array.isArray(entries) ? entries : []
+        if (meta?.leagueWatcher) lastLeagueWatcher = meta.leagueWatcher
         mergeAndBroadcast()
       })
       console.log(`[LiveOdds] Adapter "${adapter.name}" (${adapter.bookId}) started for ${bookKey} (league: ${LEAGUE_KEY})`)
@@ -323,10 +329,16 @@ async function main() {
   })
   console.log(`[LiveOdds] WebSocket server listening on port ${WS_PORT}. Connect to ws://localhost:${WS_PORT}`)
 
+  let lastLeagueWatcherSingle = null
   const onOdds = (entries, meta) => {
     server.broadcast(entries, meta)
     if (PUSH_URL) pushToApi(entries, PUSH_URL, PUSH_KEY)
-    if (TERMINAL_URL) pushToTerminal(entries, TERMINAL_URL, SOURCE_ID)
+    if (meta?.leagueWatcher) lastLeagueWatcherSingle = meta.leagueWatcher
+    if (TERMINAL_URL) {
+      pushToTerminal(entries, TERMINAL_URL, SOURCE_ID, {
+        leagueWatcher: lastLeagueWatcherSingle || undefined
+      })
+    }
   }
 
   await adapter.start(LEAGUE_KEY, onOdds)

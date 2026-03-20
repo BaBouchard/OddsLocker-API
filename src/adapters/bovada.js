@@ -1,5 +1,6 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
+import { buildBovadaLeagueWatcher } from '../bovada-league-watcher.js'
 
 /** Bovada sport code (ev.sport) -> normalized sport slug. Use event-level so boxing/MMA etc. are not labeled as NBA. */
 const SPORT_CODE_TO_SLUG = {
@@ -96,13 +97,15 @@ export class BovadaAdapter extends BaseAdapter {
         this._onOdds([], { pollRequests: 1 })
         return
       }
-      const entries = this.parseResponse(Array.isArray(data) ? data : [data], {
+      const pathGroups = Array.isArray(data) ? data : [data]
+      const leagueWatcher = buildBovadaLeagueWatcher(pathGroups, { defaultSport, defaultLeague })
+      const entries = this.parseResponse(pathGroups, {
         sportsbook,
         defaultSport,
         defaultLeague,
         baseUrl
       })
-      this._onOdds(entries, { pollRequests: 1 })
+      this._onOdds(entries, { pollRequests: 1, leagueWatcher })
     } catch (e) {
       console.warn('[LiveOdds] Bovada fetch error:', e.message)
     }

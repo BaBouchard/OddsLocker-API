@@ -28,6 +28,8 @@ function sortByEventThenMarket(entries) {
 const lastBySource = {}
 const lastSeenBySource = {}
 const lastBooksBySource = {}
+/** Latest Bovada-derived league snapshot from ingest ({ sports, updatedAt }) */
+let lastLeagueWatcher = null
 const viewers = new Set()
 
 const VPS_SLOTS = ['vps1', 'vps2', 'vps3', 'vps4', 'vps5', 'vps6']
@@ -64,7 +66,8 @@ function mergeAndBroadcast() {
     type: 'odds',
     data: sorted,
     ts: Date.now(),
-    sources
+    sources,
+    leagueWatcher: lastLeagueWatcher
   })
   for (const ws of viewers) {
     if (ws.readyState === 1) ws.send(payload)
@@ -121,6 +124,14 @@ app.post('/ingest', (req, res) => {
   if (slot) {
     lastSeenBySource[slot] = Date.now()
     lastBooksBySource[slot] = books
+  }
+  const lw = req.body?.leagueWatcher
+  if (lw && typeof lw === 'object') {
+    lastLeagueWatcher = {
+      sports: Array.isArray(lw.sports) ? lw.sports : [],
+      updatedAt: lw.updatedAt || Date.now(),
+      sourceId
+    }
   }
   const total = Object.values(lastBySource).flat().length
   console.log('[Terminal] Ingest from', sourceId, ':', data.length, 'entries (total', total, ')')
@@ -239,6 +250,75 @@ app.get('/', (req, res) => {
         .vps-slot .vps-book-dot.off { background: var(--muted); opacity: 0.5; }
         .vps-slot .vps-book-dot.banned { background: #ef4444; }
         .section-title { font-size: 0.85rem; font-weight: 500; color: var(--muted); margin-bottom: 0.75rem; }
+        .section-title .lw-sub { font-weight: 400; color: var(--muted); opacity: 0.85; font-size: 0.8rem; }
+        .league-watcher-wrap {
+          margin-bottom: 1.25rem;
+          opacity: 1;
+          transform: translateY(0);
+          transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+        }
+        .league-watcher-wrap.reveal-in {
+          opacity: 1 !important;
+          transform: translateY(0) !important;
+        }
+        .league-watcher-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+          gap: 0.65rem;
+        }
+        .lw-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          overflow: hidden;
+          min-height: 4rem;
+        }
+        .lw-card-head {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          padding: 0.5rem 0.6rem;
+          border-bottom: 1px solid var(--border);
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: var(--text);
+          letter-spacing: 0.02em;
+        }
+        .lw-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .lw-dot.on {
+          background: var(--green);
+          box-shadow: 0 0 8px rgba(34, 197, 94, 0.45);
+          animation: green-blink 2s ease-in-out infinite;
+        }
+        .lw-dot.off {
+          background: var(--muted);
+          opacity: 0.45;
+        }
+        .lw-card-body { padding: 0.35rem 0.5rem 0.5rem; max-height: 200px; overflow-y: auto; }
+        .lw-league-row {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.68rem;
+          color: var(--muted);
+          padding: 0.2rem 0;
+        }
+        .lw-league-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lw-empty {
+          grid-column: 1 / -1;
+          text-align: center;
+          padding: 1rem 0.75rem;
+          font-size: 0.8rem;
+          color: var(--muted);
+          background: var(--surface);
+          border: 1px dashed var(--border);
+          border-radius: 8px;
+        }
         .table-wrap {
           background: var(--surface);
           border: 1px solid var(--border);
@@ -299,6 +379,12 @@ app.get('/', (req, res) => {
           <div class="vps-slot" data-slot="vps5"><div class="vps-label">VPS 5</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span></div></div></div>
           <div class="vps-slot" data-slot="vps6"><div class="vps-label">VPS 6</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span></div></div></div>
         </div>
+        <div class="section-title">League watcher <span class="lw-sub">(Bovada live JSON)</span> <span id="lwUpdated" class="total-odds" style="font-size:0.75rem;">—</span></div>
+        <div class="league-watcher-wrap" id="leagueWatcherWrap">
+          <div class="league-watcher-grid" id="leagueWatcherGrid">
+            <div class="lw-empty" id="leagueWatcherEmpty">Waiting for Bovada snapshot from ingest…</div>
+          </div>
+        </div>
         <div class="section-title">Live feed (WebSocket) <span id="totalOdds" class="total-odds">—</span></div>
         <div class="table-wrap">
           <table id="oddsTable">
@@ -317,7 +403,7 @@ app.get('/', (req, res) => {
           </table>
         </div>
         <p class="foot">
-          <a href="/health">/health</a> · <a href="/export/csv" download>Export CSV</a> · Ingest: <code>POST /ingest</code> <code>{ "sourceId", "data" }</code> · ws://localhost: (local) · wss://oddslocker-api-production.up.railway.app (hosted)
+          <a href="/health">/health</a> · <a href="/export/csv" download>Export CSV</a> · Ingest: <code>POST /ingest</code> with <code>sourceId</code>, <code>data</code>, optional <code>leagueWatcher</code> · ws://localhost: (local) · wss://oddslocker-api-production.up.railway.app (hosted)
         </p>
       </div>
       <script>
@@ -325,15 +411,22 @@ app.get('/', (req, res) => {
         const ws = new WebSocket(wsProtocol + location.host)
         const tbody = document.querySelector('#oddsTable tbody')
         const totalOddsEl = document.getElementById('totalOdds')
+        const lwGrid = document.getElementById('leagueWatcherGrid')
+        const lwUpdated = document.getElementById('lwUpdated')
         ;(function setupIntroAnimation() {
           const slots = Array.from(document.querySelectorAll('.vps-slot'))
           const tableWrap = document.querySelector('.table-wrap')
+          const lwWrap = document.getElementById('leagueWatcherWrap')
           if (slots.length === 0 || !tableWrap) return
           // prime initial state
           slots.forEach((slot) => {
             slot.style.opacity = '0'
             slot.style.transform = 'rotateX(90deg) translateY(-12px)'
           })
+          if (lwWrap) {
+            lwWrap.style.opacity = '0'
+            lwWrap.style.transform = 'translateY(14px)'
+          }
           tableWrap.style.opacity = '0'
           tableWrap.style.transform = 'translateY(18px)'
           // stagger in VPS slots like dealing cards
@@ -344,8 +437,11 @@ app.get('/', (req, res) => {
           })
           const totalDuration = (slots.length - 1) * 160 + 550
           setTimeout(() => {
-            tableWrap.classList.add('reveal-in')
+            if (lwWrap) lwWrap.classList.add('reveal-in')
           }, totalDuration)
+          setTimeout(() => {
+            tableWrap.classList.add('reveal-in')
+          }, totalDuration + 380)
         })()
         function escapeHtml(s) {
           if (s == null) return ''
@@ -391,14 +487,61 @@ app.get('/', (req, res) => {
             })
           })
         }
+        function updateLeagueWatcher(watcher) {
+          if (!lwGrid || !lwUpdated) return
+          lwUpdated.textContent = watcher && watcher.updatedAt ? 'updated ' + formatAgo(watcher.updatedAt) : '—'
+          if (!watcher || !Array.isArray(watcher.sports) || watcher.sports.length === 0) {
+            lwGrid.innerHTML = '<div class="lw-empty" id="leagueWatcherEmpty">Waiting for Bovada snapshot from ingest…</div>'
+            return
+          }
+          lwGrid.innerHTML = ''
+          watcher.sports.forEach((sp) => {
+            const card = document.createElement('div')
+            card.className = 'lw-card'
+            const head = document.createElement('div')
+            head.className = 'lw-card-head'
+            const sportDot = document.createElement('span')
+            sportDot.className = 'lw-dot ' + (sp.active ? 'on' : 'off')
+            const sportName = document.createElement('span')
+            sportName.textContent = sp.name || sp.key || 'Sport'
+            head.appendChild(sportDot)
+            head.appendChild(sportName)
+            card.appendChild(head)
+            const body = document.createElement('div')
+            body.className = 'lw-card-body'
+            if (!sp.leagues || sp.leagues.length === 0) {
+              const row = document.createElement('div')
+              row.className = 'lw-league-row'
+              row.innerHTML = '<span class="lw-dot off"></span><span class="lw-league-name">No leagues</span>'
+              body.appendChild(row)
+            } else {
+              sp.leagues.forEach((lg) => {
+                const row = document.createElement('div')
+                row.className = 'lw-league-row'
+                const d = document.createElement('span')
+                d.className = 'lw-dot ' + (lg.active ? 'on' : 'off')
+                const nm = document.createElement('span')
+                nm.className = 'lw-league-name'
+                nm.textContent = lg.name || lg.key || ''
+                row.appendChild(d)
+                row.appendChild(nm)
+                body.appendChild(row)
+              })
+            }
+            card.appendChild(body)
+            lwGrid.appendChild(card)
+          })
+        }
         ws.onmessage = (e) => {
           const msg = JSON.parse(e.data)
-          if (msg.type !== 'odds' || !Array.isArray(msg.data)) return
-          totalOddsEl.textContent = msg.data.length
+          if (msg.type !== 'odds') return
+          const data = Array.isArray(msg.data) ? msg.data : []
+          totalOddsEl.textContent = data.length
           if (msg.sources) updateVpsSlots(msg.sources)
+          if (Object.prototype.hasOwnProperty.call(msg, 'leagueWatcher')) updateLeagueWatcher(msg.leagueWatcher)
           tbody.innerHTML = ''
           const max = 80
-          msg.data.slice(0, max).forEach(e => {
+          data.slice(0, max).forEach(e => {
             const tr = document.createElement('tr')
             const ev = (e.away_team && e.home_team) ? e.away_team + ' @ ' + e.home_team : e.event_id || ''
             const oddsCell = (e.bookmaker_link && (e.odds_american != null || e.odds_american === 0))
@@ -407,9 +550,9 @@ app.get('/', (req, res) => {
             tr.innerHTML = '<td>'+ escapeHtml(e.sport||'') +'</td><td>'+ escapeHtml(e.league||'') +'</td><td>'+ escapeHtml(ev) +'</td><td>'+ escapeHtml(e.sportsbook||'') +'</td><td>'+ escapeHtml(e.market_type||'') +'</td><td>'+ escapeHtml(e.outcome_name||'') +'</td><td>'+ oddsCell +'</td>'
             tbody.appendChild(tr)
           })
-          if (msg.data.length > max) {
+          if (data.length > max) {
             const tr = document.createElement('tr')
-            tr.innerHTML = '<td colspan="7" style="color: var(--muted); padding: 0.65rem 0.85rem;">… and ' + (msg.data.length - max) + ' more</td>'
+            tr.innerHTML = '<td colspan="7" style="color: var(--muted); padding: 0.65rem 0.85rem;">… and ' + (data.length - max) + ' more</td>'
             tbody.appendChild(tr)
           }
         }
@@ -466,7 +609,7 @@ wss.on('connection', (ws, req) => {
   const merged = Object.values(lastBySource).flat()
   const sorted = sortByEventThenMarket(merged)
   const sources = getSourceStatsForSlots()
-  ws.send(JSON.stringify({ type: 'odds', data: sorted, ts: Date.now(), sources }))
+  ws.send(JSON.stringify({ type: 'odds', data: sorted, ts: Date.now(), sources, leagueWatcher: lastLeagueWatcher }))
   ws.on('close', () => viewers.delete(ws))
   ws.on('error', () => viewers.delete(ws))
 })

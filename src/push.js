@@ -13,18 +13,22 @@ export async function pushToApi(entries, apiBaseUrl, apiKey = null) {
 }
 
 /** Push normalized odds to the central terminal (for VPS → terminal flow). */
-export async function pushToTerminal(entries, terminalUrl, sourceId) {
+export async function pushToTerminal(entries, terminalUrl, sourceId, extra = {}) {
   if (!terminalUrl || !sourceId) return
   const url = `${terminalUrl.replace(/\/$/, '')}/ingest`
   const data = Array.isArray(entries) ? entries : []
   const headers = { 'Content-Type': 'application/json' }
   const ingestSecret = process.env.TERMINAL_INGEST_SECRET
   if (ingestSecret) headers['X-Terminal-Ingest-Secret'] = ingestSecret
+  const body = { sourceId, data }
+  if (extra.leagueWatcher && typeof extra.leagueWatcher === 'object') {
+    body.leagueWatcher = extra.leagueWatcher
+  }
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ sourceId, data })
+      body: JSON.stringify(body)
     })
     if (!res.ok) throw new Error(await res.text())
     if (data.length) console.log('[LiveOdds] Pushed', data.length, 'entries to terminal')
