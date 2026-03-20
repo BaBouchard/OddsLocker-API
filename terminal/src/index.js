@@ -10,6 +10,9 @@ const PORT = Number(process.env.PORT) || 3000
 const LOGIN_PASSWORD = process.env.TERMINAL_LOGIN_PASSWORD || ''
 /** If set, scrapers must send header X-Terminal-Ingest-Secret: <same value>. Ingest never uses the browser login cookie. */
 const TERMINAL_INGEST_SECRET = process.env.TERMINAL_INGEST_SECRET || ''
+/** If true, each POST /ingest clears all stored odds from every VPS before applying that request (troubleshooting; disables multi-VPS merge). */
+const TERMINAL_REPLACE_ALL_ON_INGEST =
+  /^(1|true|yes|on)$/i.test(String(process.env.TERMINAL_REPLACE_ALL_ON_INGEST || '').trim())
 
 // Same sort as scraper broadcast: event_id then market (moneyline, spread, total)
 const MARKET_ORDER = { moneyline: 0, spread: 1, total: 2 }
@@ -133,6 +136,9 @@ app.post('/ingest', (req, res) => {
   const { sourceId, data } = req.body || {}
   if (!sourceId || !Array.isArray(data)) {
     return res.status(400).json({ error: 'Missing sourceId or data array' })
+  }
+  if (TERMINAL_REPLACE_ALL_ON_INGEST) {
+    clearAllTerminalOddsState()
   }
   lastBySource[sourceId] = data
   lastSeenBySource[sourceId] = Date.now()
