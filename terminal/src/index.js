@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import crypto from 'node:crypto'
 import express from 'express'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
@@ -13,6 +14,61 @@ const TERMINAL_INGEST_SECRET = String(process.env.TERMINAL_INGEST_SECRET || '').
 /** If true, each POST /ingest clears all stored odds from every VPS before applying that request (troubleshooting; disables multi-VPS merge). */
 const TERMINAL_REPLACE_ALL_ON_INGEST =
   /^(1|true|yes|on)$/i.test(String(process.env.TERMINAL_REPLACE_ALL_ON_INGEST || '').trim())
+
+/**
+ * Comma-separated WebSocket reader tokens (per customer / API key). Empty = legacy auth only.
+ * Connect with: wss://host/?token=SECRET or Authorization: Bearer SECRET
+ * If TERMINAL_LOGIN_PASSWORD is set, dashboard cookie still allows WS (same host).
+ */
+function parseWsAllowedTokens(raw) {
+  if (!raw || typeof raw !== 'string') return []
+  return [...new Set(raw.split(',').map((t) => t.trim()).filter(Boolean))]
+}
+
+const WS_ALLOWED_TOKENS_LIST = parseWsAllowedTokens(process.env.TERMINAL_WS_ALLOWED_TOKENS || '')
+const WS_TOKEN_AUTH_ENABLED = WS_ALLOWED_TOKENS_LIST.length > 0
+
+function getWsTokenFromRawRequest(request) {
+  const raw = request.url || '/'
+  const qIndex = raw.indexOf('?')
+  const qs = qIndex >= 0 ? raw.slice(qIndex + 1) : ''
+  const params = new URLSearchParams(qs)
+  const qToken = params.get('token')
+  if (qToken) return qToken.trim()
+  const auth = request.headers.authorization || request.headers.Authorization
+  if (auth && /^Bearer\s+/i.test(String(auth))) {
+    return String(auth).replace(/^Bearer\s+/i, '').trim()
+  }
+  return null
+}
+
+function isAllowedWsToken(provided) {
+  if (provided == null || provided === '') return false
+  const p = Buffer.from(String(provided), 'utf8')
+  if (p.length === 0 || p.length > 4096) return false
+  for (const allowed of WS_ALLOWED_TOKENS_LIST) {
+    const a = Buffer.from(String(allowed), 'utf8')
+    if (p.length !== a.length) continue
+    try {
+      if (crypto.timingSafeEqual(p, a)) return true
+    } catch {
+      /* ignore */
+    }
+  }
+  return false
+}
+
+/** WebSocket upgrade allowed: token (if configured), or dashboard cookie when password is set, or open */
+function canUpgradeWebSocket(request) {
+  if (WS_TOKEN_AUTH_ENABLED) {
+    const tok = getWsTokenFromRawRequest(request)
+    if (tok && isAllowedWsToken(tok)) return true
+    if (LOGIN_PASSWORD && isAuthed(request)) return true
+    return false
+  }
+  if (LOGIN_PASSWORD) return isAuthed(request)
+  return true
+}
 
 /** Railway / reverse proxy: so req.secure and cookies work for HTTPS login → WebSocket */
 const TRUST_PROXY = process.env.TRUST_PROXY !== '0'
@@ -495,7 +551,7 @@ app.get('/', (req, res) => {
           </table>
         </div>
         <p class="foot">
-          <a href="/health">/health</a> · <a href="/export/csv" download>Export CSV</a> · Ingest: <code>POST /ingest</code> with <code>sourceId</code>, <code>data</code>, optional <code>leagueWatcher</code> · ws://localhost: (local) · wss://oddslocker-api-production.up.railway.app (hosted)
+          <a href="/health">/health</a> · <a href="/export/csv" download>Export CSV</a> · Ingest: <code>POST /ingest</code> · WS readers: <code>wss://host/?token=…</code> or <code>Authorization: Bearer</code> when tokens are configured
         </p>
       </div>
       <script>
@@ -644,7 +700,7 @@ app.get('/', (req, res) => {
         ws.onerror = function () {
           if (!wsStatusEl) return
           wsStatusEl.textContent =
-            'WebSocket could not connect. If you use a terminal password: log in, then hard-refresh (Cmd/Ctrl+Shift+R). Otherwise check Railway logs for upgrade errors. Ingest may still work — open /health or Export CSV.'
+            'WebSocket could not connect. If TERMINAL_WS_ALLOWED_TOKENS is set, external apps need ?token= or Authorization: Bearer. If you use a terminal password: log in, then hard-refresh. Check /health. Ingest may still work — try Export CSV.'
           wsStatusEl.style.display = 'block'
         }
         ws.onclose = function (ev) {
@@ -703,7 +759,22 @@ app.post('/login', (req, res) => {
 })
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, sources: Object.keys(lastBySource).length, viewers: viewers.size })
+  res.json({
+    ok: true,
+    sources: Object.keys(lastBySource).length,
+    viewers: viewers.size,
+    ws: {
+      tokenAuthEnabled: WS_TOKEN_AUTH_ENABLED,
+      tokenSlots: WS_ALLOWED_TOKENS_LIST.length,
+      loginPasswordEnabled: !!LOGIN_PASSWORD,
+      modes:
+        WS_TOKEN_AUTH_ENABLED
+          ? 'Use ?token= or Authorization: Bearer with one of TERMINAL_WS_ALLOWED_TOKENS; or ol_auth cookie if TERMINAL_LOGIN_PASSWORD is set.'
+          : LOGIN_PASSWORD
+            ? 'Cookie (ol_auth) after login.'
+            : 'Open (no WS auth).'
+    }
+  })
 })
 
 app.get('/export/csv', (_req, res) => {
@@ -724,12 +795,20 @@ httpServer.on('upgrade', (request, socket, head) => {
     socket.destroy()
     return
   }
-  if (LOGIN_PASSWORD && !isAuthed(request)) {
-    console.warn(
-      '[Terminal] WebSocket upgrade rejected: missing ol_auth cookie (log in via / then reload; HTTPS needs Secure cookie — trust proxy enabled:',
-      TRUST_PROXY,
-      ')'
-    )
+  if (!canUpgradeWebSocket(request)) {
+    if (WS_TOKEN_AUTH_ENABLED) {
+      console.warn(
+        '[Terminal] WebSocket upgrade rejected: invalid/missing token (?token= or Authorization: Bearer) and no valid ol_auth cookie'
+      )
+    } else if (LOGIN_PASSWORD) {
+      console.warn(
+        '[Terminal] WebSocket upgrade rejected: missing ol_auth cookie (log in via / then reload; trust proxy:',
+        TRUST_PROXY,
+        ')'
+      )
+    } else {
+      console.warn('[Terminal] WebSocket upgrade rejected')
+    }
     socket.destroy()
     return
   }
@@ -760,5 +839,14 @@ wss.on('connection', (ws, req) => {
 httpServer.listen(PORT, () => {
   console.log(`[Terminal] HTTP + WebSocket on port ${PORT}`)
   console.log(`[Terminal] Ingest: POST http://localhost:${PORT}/ingest  body: { sourceId, data }`)
-  console.log(`[Terminal] Live feed: ws://localhost: (local) · wss://oddslocker-api-production.up.railway.app (hosted)`)
+  if (WS_TOKEN_AUTH_ENABLED) {
+    console.log(
+      `[Terminal] WebSocket: ${WS_ALLOWED_TOKENS_LIST.length} token(s) in TERMINAL_WS_ALLOWED_TOKENS — clients use wss://host/?token=… or Authorization: Bearer`
+    )
+    if (LOGIN_PASSWORD) {
+      console.log('[Terminal] WebSocket: dashboard users may also use ol_auth cookie after login.')
+    }
+  } else {
+    console.log('[Terminal] Live feed: set TERMINAL_WS_ALLOWED_TOKENS for per-customer WS tokens (comma-separated).')
+  }
 })

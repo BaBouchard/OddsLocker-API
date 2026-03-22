@@ -25,6 +25,29 @@ In the scraper (repo root) set:
 
 Then run the scraper as usual; it will POST each update to the terminal. The terminal merges all sources and broadcasts to WebSocket viewers in the same format as the scraper’s local WebSocket (`{ type: 'odds', data, ts }`).
 
+## WebSocket auth (main website / paid access)
+
+Set **`TERMINAL_WS_ALLOWED_TOKENS`** on the terminal to a **comma-separated** list of secret strings (no commas inside a token). Each string is one revocable “seat” you can give a customer.
+
+**Connect using either:**
+
+1. **Query string (typical in browsers):**  
+   `wss://<your-host>/?token=<customer_token>`
+2. **Header (Node/scripts):**  
+   `Authorization: Bearer <customer_token>`
+
+Validation uses **constant-time** comparison per token.
+
+**Dashboard (this repo’s HTML):** If **`TERMINAL_LOGIN_PASSWORD`** is set, open the UI after login; the browser sends the **`ol_auth` cookie** on the WebSocket handshake (no token in the URL).
+
+If you use **tokens but no login password**, the public HTML page cannot open a socket without a token — use **`https://<host>/?token=<one-of-your-tokens>`** when you want to view the dashboard, or rely on your main site for the live feed.
+
+**Operational notes:**
+
+- Rotate a single customer: remove their token from the list and redeploy (or hot-reload env).
+- Tokens in URLs may appear in **access logs**; prefer **`Authorization: Bearer`** for server-side clients when possible.
+- **`POST /ingest`** is unchanged (still **`TERMINAL_INGEST_SECRET`** for scrapers only).
+
 ### Troubleshooting: single-VPS snapshot
 
 By default the terminal **keeps** the last payload per `sourceId` and **merges** them (so VPS1 + VPS3 both appear). To debug one scraper in isolation, set on the **terminal** host:
@@ -43,7 +66,8 @@ Deploy the `terminal` folder as its own service. Set `PORT` if needed (Railway s
 
 ### Blank table but scrapers “push OK”?
 
-1. Open **`/health`** — if `sources` &gt; 0, data is in memory; the issue is usually the **browser WebSocket** (not ingest).
-2. If **`TERMINAL_LOGIN_PASSWORD`** is set on Railway: log in, then **hard-refresh** so the `Secure` session cookie is sent on the `wss://` handshake. The app uses **`trust proxy`** (disable with `TRUST_PROXY=0` only for local HTTP).
-3. Try **Export CSV** — if rows appear, ingest works; fix WebSocket/auth as above.
-4. Scrapers must get **HTTP 200** from `POST /ingest` (check logs for `Pushed N entries`). **401** = fix `TERMINAL_INGEST_SECRET` on both sides (no extra spaces).
+1. Open **`/health`** — check `ws.tokenAuthEnabled` and `ws.tokenSlots`. If `sources` &gt; 0, data is in memory; the issue is usually **WebSocket auth** (not ingest).
+2. If **`TERMINAL_WS_ALLOWED_TOKENS`** is set: external sites must use **`wss://host/?token=…`** or **`Authorization: Bearer`**. The hosted dashboard still works with the **login cookie** if **`TERMINAL_LOGIN_PASSWORD`** is set.
+3. If only **`TERMINAL_LOGIN_PASSWORD`** is set (no tokens): log in, then **hard-refresh** so the `Secure` cookie is sent on `wss://`. The app uses **`trust proxy`** (disable with `TRUST_PROXY=0` only for local HTTP).
+4. Try **Export CSV** — if rows appear, ingest works; fix WebSocket/auth as above.
+5. Scrapers must get **HTTP 200** from `POST /ingest`. **401** on ingest = fix `TERMINAL_INGEST_SECRET` (no extra spaces).
