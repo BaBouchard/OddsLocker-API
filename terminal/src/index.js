@@ -367,10 +367,6 @@ app.get('/', (req, res) => {
         .tagline { color: var(--muted); font-size: 0.95rem; margin: 0 0 1.5rem 0; }
         .section-title .total-odds { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--accent); margin-left: 0.35rem; }
         @keyframes green-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-        @keyframes heat-cooldown-blink {
-          0%, 48% { background: #7a3333; }
-          52%, 100% { background: transparent; }
-        }
         .vps-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; perspective: 1100px; }
         .vps-slot {
           --heat: 0;
@@ -390,7 +386,6 @@ app.get('/', (req, res) => {
           );
         }
         .vps-slot.heat-cooldown {
-          animation: heat-cooldown-blink 2.6s ease-in-out infinite;
           box-shadow: none;
         }
         .vps-slot-inner {
@@ -633,11 +628,32 @@ app.get('/', (req, res) => {
           if (level < 0.75) return { text: 'Hot', cls: 'hot' }
           return { text: 'Critical', cls: 'critical' }
         }
+        const COOLDOWN_BLINK_MS = 2600
+        const COOLDOWN_BORDER_ON = '#7a3333'
+        let cooldownSyncStarted = false
+        function ensureCooldownSyncLoop() {
+          if (cooldownSyncStarted) return
+          cooldownSyncStarted = true
+          function tickCooldownBlink() {
+            const phase = (Date.now() % COOLDOWN_BLINK_MS) / COOLDOWN_BLINK_MS
+            const bg = phase < 0.48 ? COOLDOWN_BORDER_ON : 'transparent'
+            document.querySelectorAll('.vps-slot.heat-cooldown').forEach((el) => {
+              el.style.background = bg
+            })
+            requestAnimationFrame(tickCooldownBlink)
+          }
+          requestAnimationFrame(tickCooldownBlink)
+        }
         function applyVpsHeat(el, level, cooldown) {
           if (!el) return
           const clamped = Math.max(0, Math.min(1, level))
           el.style.setProperty('--heat', String(clamped))
           el.classList.toggle('heat-cooldown', !!cooldown)
+          if (cooldown) {
+            ensureCooldownSyncLoop()
+          } else {
+            el.style.background = ''
+          }
           const tag = el.querySelector('.vps-heat-tag')
           if (tag) {
             const { text, cls } = heatLabelForLevel(clamped, cooldown)
