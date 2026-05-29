@@ -381,8 +381,8 @@ app.get('/', (req, res) => {
             #7a3535 0%,
             #946040 calc(var(--heat) * 42%),
             #857848 calc(var(--heat) * 72%),
-            #3d7356 calc(var(--heat) * 100%),
-            #3d7356 100%
+            #524672 calc(var(--heat) * 100%),
+            #524672 100%
           );
         }
         .vps-slot.heat-cooldown {
@@ -408,7 +408,7 @@ app.get('/', (req, res) => {
           color: #a1a1aa;
           margin-bottom: 0.3rem;
         }
-        .vps-slot .vps-heat-tag.cool { color: #5a9170; }
+        .vps-slot .vps-heat-tag.cool { color: #8b7eb5; }
         .vps-slot .vps-heat-tag.warm { color: #a89458; }
         .vps-slot .vps-heat-tag.hot { color: #b07850; }
         .vps-slot .vps-heat-tag.critical { color: #a86565; }
