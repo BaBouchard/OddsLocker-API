@@ -367,15 +367,9 @@ app.get('/', (req, res) => {
         .tagline { color: var(--muted); font-size: 0.95rem; margin: 0 0 1.5rem 0; }
         .section-title .total-odds { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--accent); margin-left: 0.35rem; }
         @keyframes green-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-        @keyframes heat-cooldown-pulse {
-          0%, 100% {
-            background: linear-gradient(to top, #b91c1c, #ef4444 50%, #f87171);
-            box-shadow: 0 0 16px rgba(239, 68, 68, 0.55);
-          }
-          50% {
-            background: linear-gradient(to top, #7f1d1d, #991b1b 50%, #dc2626);
-            box-shadow: 0 0 4px rgba(239, 68, 68, 0.12);
-          }
+        @keyframes heat-cooldown-blink {
+          0%, 48% { background: #7a3333; }
+          52%, 100% { background: transparent; }
         }
         .vps-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; perspective: 1100px; }
         .vps-slot {
@@ -388,15 +382,16 @@ app.get('/', (req, res) => {
           transition: transform 0.55s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.55s ease-out, box-shadow 0.3s ease-out;
           background: linear-gradient(
             to top,
-            #dc2626 0%,
-            #f97316 calc(var(--heat) * 42%),
-            #eab308 calc(var(--heat) * 72%),
-            #22c55e calc(var(--heat) * 100%),
-            #22c55e 100%
+            #7a3535 0%,
+            #946040 calc(var(--heat) * 42%),
+            #857848 calc(var(--heat) * 72%),
+            #3d7356 calc(var(--heat) * 100%),
+            #3d7356 100%
           );
         }
         .vps-slot.heat-cooldown {
-          animation: heat-cooldown-pulse 2.8s ease-in-out infinite;
+          animation: heat-cooldown-blink 2.6s ease-in-out infinite;
+          box-shadow: none;
         }
         .vps-slot-inner {
           background: var(--surface);
@@ -418,11 +413,11 @@ app.get('/', (req, res) => {
           color: #a1a1aa;
           margin-bottom: 0.3rem;
         }
-        .vps-slot .vps-heat-tag.cool { color: #4ade80; }
-        .vps-slot .vps-heat-tag.warm { color: #fbbf24; }
-        .vps-slot .vps-heat-tag.hot { color: #fb923c; }
-        .vps-slot .vps-heat-tag.critical { color: #f87171; }
-        .vps-slot .vps-heat-tag.cooldown { color: #ef4444; }
+        .vps-slot .vps-heat-tag.cool { color: #5a9170; }
+        .vps-slot .vps-heat-tag.warm { color: #a89458; }
+        .vps-slot .vps-heat-tag.hot { color: #b07850; }
+        .vps-slot .vps-heat-tag.critical { color: #a86565; }
+        .vps-slot .vps-heat-tag.cooldown { color: #9e5050; }
         .vps-slot .vps-n { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text); margin-bottom: 0.15rem; }
         .vps-slot .vps-time { font-size: 0.65rem; color: var(--muted); margin-bottom: 0.5rem; }
         .vps-slot .vps-books { text-align: left; border-top: 1px solid var(--border); padding-top: 0.4rem; }
