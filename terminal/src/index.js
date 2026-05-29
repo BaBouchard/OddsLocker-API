@@ -367,16 +367,42 @@ app.get('/', (req, res) => {
         .tagline { color: var(--muted); font-size: 0.95rem; margin: 0 0 1.5rem 0; }
         .section-title .total-odds { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--accent); margin-left: 0.35rem; }
         @keyframes green-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+        @keyframes heat-cooldown-pulse {
+          0%, 100% {
+            background: linear-gradient(to top, #b91c1c, #ef4444 50%, #f87171);
+            box-shadow: 0 0 16px rgba(239, 68, 68, 0.55);
+          }
+          50% {
+            background: linear-gradient(to top, #7f1d1d, #991b1b 50%, #dc2626);
+            box-shadow: 0 0 4px rgba(239, 68, 68, 0.12);
+          }
+        }
         .vps-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; perspective: 1100px; }
         .vps-slot {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 0.65rem 0.75rem;
+          --heat: 0;
+          padding: 2px;
+          border-radius: 10px;
           text-align: center;
           transform-style: preserve-3d;
           will-change: transform, opacity;
           transition: transform 0.55s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.55s ease-out, box-shadow 0.3s ease-out;
+          background: linear-gradient(
+            to top,
+            #dc2626 0%,
+            #f97316 calc(var(--heat) * 42%),
+            #eab308 calc(var(--heat) * 72%),
+            #22c55e calc(var(--heat) * 100%),
+            #22c55e 100%
+          );
+        }
+        .vps-slot.heat-cooldown {
+          animation: heat-cooldown-pulse 2.8s ease-in-out infinite;
+        }
+        .vps-slot-inner {
+          background: var(--surface);
+          border-radius: 8px;
+          padding: 0.65rem 0.75rem;
+          height: 100%;
         }
         .vps-slot.deal-in {
           opacity: 1 !important;
@@ -384,6 +410,19 @@ app.get('/', (req, res) => {
           box-shadow: 0 18px 40px rgba(0,0,0,0.45);
         }
         .vps-slot .vps-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 0.35rem; }
+        .vps-slot .vps-heat-tag {
+          font-size: 0.58rem;
+          font-weight: 500;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+          color: #a1a1aa;
+          margin-bottom: 0.3rem;
+        }
+        .vps-slot .vps-heat-tag.cool { color: #4ade80; }
+        .vps-slot .vps-heat-tag.warm { color: #fbbf24; }
+        .vps-slot .vps-heat-tag.hot { color: #fb923c; }
+        .vps-slot .vps-heat-tag.critical { color: #f87171; }
+        .vps-slot .vps-heat-tag.cooldown { color: #ef4444; }
         .vps-slot .vps-n { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text); margin-bottom: 0.15rem; }
         .vps-slot .vps-time { font-size: 0.65rem; color: var(--muted); margin-bottom: 0.5rem; }
         .vps-slot .vps-books { text-align: left; border-top: 1px solid var(--border); padding-top: 0.4rem; }
@@ -517,14 +556,14 @@ app.get('/', (req, res) => {
           <h1>OddsLocker API</h1>
         </div>
         <p class="tagline">Central aggregator — merge and broadcast normalized odds to website clients.</p>
-        <div class="section-title">VPS status</div>
+        <div class="section-title">VPS status <span class="lw-sub">(heat border: demo levels until scrapers report heat)</span></div>
         <div class="vps-grid" id="vpsGrid">
-          <div class="vps-slot" data-slot="vps1"><div class="vps-label">VPS 1</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div>
-          <div class="vps-slot" data-slot="vps2"><div class="vps-label">VPS 2</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div>
-          <div class="vps-slot" data-slot="vps3"><div class="vps-label">VPS 3</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div>
-          <div class="vps-slot" data-slot="vps4"><div class="vps-label">VPS 4</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div>
-          <div class="vps-slot" data-slot="vps5"><div class="vps-label">VPS 5</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div>
-          <div class="vps-slot" data-slot="vps6"><div class="vps-label">VPS 6</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div>
+          <div class="vps-slot" data-slot="vps1"><div class="vps-slot-inner"><div class="vps-label">VPS 1</div><div class="vps-heat-tag cool">Cool</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div></div>
+          <div class="vps-slot" data-slot="vps2"><div class="vps-slot-inner"><div class="vps-label">VPS 2</div><div class="vps-heat-tag warm">Warm</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div></div>
+          <div class="vps-slot" data-slot="vps3"><div class="vps-slot-inner"><div class="vps-label">VPS 3</div><div class="vps-heat-tag hot">Hot</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div></div>
+          <div class="vps-slot" data-slot="vps4"><div class="vps-slot-inner"><div class="vps-label">VPS 4</div><div class="vps-heat-tag critical">Critical</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div></div>
+          <div class="vps-slot" data-slot="vps5"><div class="vps-slot-inner"><div class="vps-label">VPS 5</div><div class="vps-heat-tag cool">Heating…</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div></div>
+          <div class="vps-slot" data-slot="vps6"><div class="vps-slot-inner"><div class="vps-label">VPS 6</div><div class="vps-heat-tag cooldown">Cooldown</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books"><div class="vps-book-row" data-book="BetRivers"><span class="vps-book-dot off"></span><span class="vps-book-name">BetRivers</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="FanDuel"><span class="vps-book-dot off"></span><span class="vps-book-name">FanDuel</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="Bovada"><span class="vps-book-dot off"></span><span class="vps-book-name">Bovada</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="PointsBet"><span class="vps-book-dot off"></span><span class="vps-book-name">PointsBet</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="BetMGM"><span class="vps-book-dot off"></span><span class="vps-book-name">BetMGM</span><span class="vps-book-count">—</span></div><div class="vps-book-row" data-book="888sport"><span class="vps-book-dot off"></span><span class="vps-book-name">888sport</span><span class="vps-book-count">—</span></div></div></div></div>
         </div>
         <div class="section-title">League watcher <span class="lw-sub">(Bovada live JSON)</span> <span id="lwUpdated" class="total-odds" style="font-size:0.75rem;">—</span></div>
         <div class="league-watcher-wrap" id="leagueWatcherWrap">
@@ -592,6 +631,67 @@ app.get('/', (req, res) => {
             tableWrap.classList.add('reveal-in')
           }, totalDuration + 380)
         })()
+        function heatLabelForLevel(level, cooldown) {
+          if (cooldown) return { text: 'Cooldown', cls: 'cooldown' }
+          if (level < 0.15) return { text: 'Cool', cls: 'cool' }
+          if (level < 0.45) return { text: 'Warm', cls: 'warm' }
+          if (level < 0.75) return { text: 'Hot', cls: 'hot' }
+          return { text: 'Critical', cls: 'critical' }
+        }
+        function applyVpsHeat(el, level, cooldown) {
+          if (!el) return
+          const clamped = Math.max(0, Math.min(1, level))
+          el.style.setProperty('--heat', String(clamped))
+          el.classList.toggle('heat-cooldown', !!cooldown)
+          const tag = el.querySelector('.vps-heat-tag')
+          if (tag) {
+            const { text, cls } = heatLabelForLevel(clamped, cooldown)
+            tag.textContent = text
+            tag.className = 'vps-heat-tag ' + cls
+          }
+        }
+        function setupDemoVpsHeat() {
+          const staticHeat = {
+            vps1: 0,
+            vps2: 0.28,
+            vps3: 0.58,
+            vps4: 0.9,
+            vps6: { level: 1, cooldown: true }
+          }
+          for (const slot of Object.keys(staticHeat)) {
+            const el = document.querySelector('.vps-slot[data-slot="' + slot + '"]')
+            if (!el) continue
+            const val = staticHeat[slot]
+            const level = typeof val === 'number' ? val : val.level
+            const cooldown = typeof val === 'object' && val.cooldown
+            applyVpsHeat(el, level, cooldown)
+          }
+          const vps5 = document.querySelector('.vps-slot[data-slot="vps5"]')
+          if (!vps5) return
+          const HEAT_MS = 14000
+          const COOLDOWN_MS = 6500
+          const REST_MS = 3500
+          const CYCLE_MS = HEAT_MS + COOLDOWN_MS + REST_MS
+          function tick() {
+            const t = Date.now() % CYCLE_MS
+            if (t < HEAT_MS) {
+              const level = t / HEAT_MS
+              applyVpsHeat(vps5, level, false)
+              const tag = vps5.querySelector('.vps-heat-tag')
+              if (tag && level > 0.08 && level < 0.92) {
+                tag.textContent = 'Heating…'
+                tag.className = 'vps-heat-tag warm'
+              }
+            } else if (t < HEAT_MS + COOLDOWN_MS) {
+              applyVpsHeat(vps5, 1, true)
+            } else {
+              applyVpsHeat(vps5, 0, false)
+            }
+            requestAnimationFrame(tick)
+          }
+          requestAnimationFrame(tick)
+        }
+        setupDemoVpsHeat()
         function escapeHtml(s) {
           if (s == null) return ''
           const div = document.createElement('div')
