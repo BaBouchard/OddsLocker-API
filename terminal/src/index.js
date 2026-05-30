@@ -711,7 +711,7 @@ app.get('/', (req, res) => {
         }
         function formatAgo(ts) {
           if (!ts) return '—'
-          const s = Math.round((Date.now() - ts) / 1000)
+          const s = Math.floor((Date.now() - ts) / 1000)
           if (s < 60) return s + 's ago'
           if (s < 3600) return Math.floor(s/60) + 'm ago'
           return Math.floor(s/3600) + 'h ago'
