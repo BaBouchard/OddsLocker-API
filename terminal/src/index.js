@@ -716,6 +716,55 @@ app.get('/', (req, res) => {
           if (s < 3600) return Math.floor(s/60) + 'm ago'
           return Math.floor(s/3600) + 'h ago'
         }
+        function agoRefreshIntervalMs(ageSec) {
+          if (ageSec < 5) return 1000
+          if (ageSec < 30) return 5000
+          if (ageSec < 60) return 10000
+          return 60000
+        }
+        const vpsSlotState = {}
+        let vpsAgoTimer = null
+        function scheduleVpsAgoTick() {
+          if (vpsAgoTimer) clearTimeout(vpsAgoTimer)
+          let minInterval = 60000
+          const now = Date.now()
+          let hasAny = false
+          for (const slot of Object.keys(vpsSlotState)) {
+            const lastSeen = vpsSlotState[slot]?.lastSeen ?? 0
+            if (!lastSeen) continue
+            hasAny = true
+            const ageSec = (now - lastSeen) / 1000
+            const interval = agoRefreshIntervalMs(ageSec)
+            if (interval < minInterval) minInterval = interval
+          }
+          if (!hasAny) return
+          vpsAgoTimer = setTimeout(refreshVpsSlotTimes, minInterval)
+        }
+        function refreshVpsSlotTimes() {
+          const STALE_MS = 90000
+          document.querySelectorAll('.vps-slot').forEach(el => {
+            const slot = el.dataset.slot
+            const st = vpsSlotState[slot]
+            if (!st) return
+            const lastSeen = st.lastSeen ?? 0
+            const timeEl = el.querySelector('.vps-time')
+            if (timeEl) timeEl.textContent = formatAgo(lastSeen)
+            const hasData = st.n && lastSeen
+            if (!hasData) return
+            const age = Date.now() - lastSeen
+            const isStale = age > STALE_MS
+            const slotBooks = st.books ?? []
+            el.querySelectorAll('.vps-book-row').forEach(row => {
+              const book = row.dataset.book
+              if (!slotBooks.includes(book)) return
+              const dot = row.querySelector('.vps-book-dot')
+              if (!dot) return
+              dot.classList.remove('active', 'stale')
+              dot.classList.add(isStale ? 'stale' : 'active')
+            })
+          })
+          scheduleVpsAgoTick()
+        }
         function vpsCountForBook(bookCounts, bookLabel) {
           if (!bookCounts || !bookLabel) return 0
           if (Object.prototype.hasOwnProperty.call(bookCounts, bookLabel)) return bookCounts[bookLabel]
@@ -735,6 +784,7 @@ app.get('/', (req, res) => {
             const lastSeen = st?.lastSeen ?? 0
             const slotBooks = st?.books ?? []
             const bookCounts = st?.bookCounts ?? {}
+            vpsSlotState[slot] = { lastSeen, n, books: slotBooks, bookCounts }
             const nEl = el.querySelector('.vps-n')
             const timeEl = el.querySelector('.vps-time')
             nEl.textContent = n ? n + ' entries' : '—'
@@ -759,6 +809,7 @@ app.get('/', (req, res) => {
               }
             })
           })
+          scheduleVpsAgoTick()
         }
         function updateLeagueWatcher(watcher) {
           if (!lwGrid || !lwUpdated) return
