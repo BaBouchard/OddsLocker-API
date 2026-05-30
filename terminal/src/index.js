@@ -421,10 +421,10 @@ app.get('/', (req, res) => {
         .vps-slot .vps-book-name { flex: 1; min-width: 0; }
         .vps-slot .vps-book-count { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
         .vps-slot .vps-book-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-        .vps-slot .vps-book-dot.active { background: var(--green); animation: green-blink 2s ease-in-out infinite; }
+        .vps-slot .vps-book-dot.active { background: #524672; animation: green-blink 2s ease-in-out infinite; }
         .vps-slot .vps-book-dot.stale { background: #eab308; }
         .vps-slot .vps-book-dot.off { background: var(--muted); opacity: 0.5; }
-        .vps-slot .vps-book-dot.banned { background: #ef4444; }
+        .vps-slot .vps-book-dot.banned { background: #7a3333; }
         .section-title { font-size: 0.85rem; font-weight: 500; color: var(--muted); margin-bottom: 0.75rem; }
         .section-title .lw-sub { font-weight: 400; color: var(--muted); opacity: 0.85; font-size: 0.8rem; }
         .league-watcher-wrap {
