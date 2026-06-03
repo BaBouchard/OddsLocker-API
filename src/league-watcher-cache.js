@@ -249,6 +249,7 @@ export function mergeSnapshotWithPersistentCache(snapshot) {
       active: activeBySport.get(sportKey)?.has(leagueKey) || false
     }))
     leagueEntries.sort((a, b) => {
+      if (a.active !== b.active) return a.active ? -1 : 1
       const ra = leagueMainnessRank(sportKey, a.key, a.name)
       const rb = leagueMainnessRank(sportKey, b.key, b.name)
       if (ra !== rb) return ra - rb
