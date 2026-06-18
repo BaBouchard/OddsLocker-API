@@ -5,3 +5,7 @@ dist/
 *.log
 .DS_Store
 terminal/downloads/*.exe
+terminal/downloads/*.zip
+terminal/downloads/.env*
+terminal/downloads/README*
+!terminal/downloads/.gitkeep

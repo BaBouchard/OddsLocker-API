@@ -48,7 +48,7 @@ Then sync the terminal download manifest and publish the installer:
 node scripts/sync-scraper-release.js
 ```
 
-That updates **`terminal/scraper-release.json`** so the hosted terminal shows the correct **Download … vX** label. On your terminal host, either set **`SCRAPER_INSTALLER_URL`** to the public `.exe` URL or upload the file to **`terminal/downloads/`** (see **`terminal/README.md`**).
+That updates **`terminal/scraper-release.json`**, writes **`.env <version>`** from **`.env.example`**, and builds **`OddsLocker-Scraper-<version>.zip`** (installer + env + README). On your terminal host, set **`SCRAPER_INSTALLER_URL`** to the public **zip** URL (or upload `terminal/downloads/` to the server). See **`terminal/README.md`**.
 
 - **`npm run predist`** runs automatically before `dist` and rebuilds `../dist/live-odds-scraper.exe`.
 - Building the **installer** is typically done on **Windows** (electron-builder NSIS). You can run `npm run dist` on macOS only if your toolchain supports it; for fewer surprises, use Windows for release builds.
