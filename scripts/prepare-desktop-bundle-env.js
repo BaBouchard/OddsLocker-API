@@ -60,6 +60,12 @@ function upsertEnvKey(content, key, value) {
 if (source === '.env.example' || source === '.env.example (public template)') {
   body = upsertEnvKey(body, 'POLYMARKET_ENABLED', '1')
   body = upsertEnvKey(body, 'KALSHI_ENABLED', '1')
+  body = upsertEnvKey(body, 'POINTSBET_BASKETBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/basketball')
+  body = upsertEnvKey(body, 'POINTSBET_BASEBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/baseball')
+  body = upsertEnvKey(body, 'POINTSBET_SOCCER_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/soccer')
+  body = upsertEnvKey(body, 'POINTSBET_FOOTBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/football')
+  body = upsertEnvKey(body, 'POINTSBET_TENNIS_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/tennis')
+  body = upsertEnvKey(body, 'POINTSBET_NAME', 'PointsBet')
   body = upsertEnvKey(
     body,
     'TERMINAL_URL',

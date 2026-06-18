@@ -92,6 +92,44 @@ function seedUserEnvFromBundleIfMissing() {
   return true
 }
 
+/** Re-apply bundled books config when the desktop app version changes (keeps wizard SOURCE_ID / terminal URL). */
+function applyBundledEnvOnAppUpgrade() {
+  const bundled = readBundledEnvContent()
+  if (!bundled) return false
+  const cfg = loadConfig()
+  const appVer = app.getVersion()
+  if (cfg.bundledEnvVersion === appVer) return false
+
+  const userEnvPath = userDataPath('.env')
+  let existing = ''
+  try {
+    existing = fs.readFileSync(userEnvPath, 'utf8')
+  } catch (_) {}
+
+  const sourceId = cfg.sourceId || readEnvKeyFromContent(existing, 'SOURCE_ID', 'vps2')
+  const terminalUrl = normalizeTerminalUrl(
+    cfg.terminalUrl || readEnvKeyFromContent(existing, 'TERMINAL_URL', '')
+  )
+  const ingestSecret =
+    cfg.terminalIngestSecret || readEnvKeyFromContent(existing, 'TERMINAL_INGEST_SECRET', '')
+
+  const merged = mergeEnvContent(bundled, {
+    sourceId,
+    terminalUrl,
+    ingestSecret
+  })
+
+  fs.mkdirSync(app.getPath('userData'), { recursive: true })
+  fs.writeFileSync(userEnvPath, merged, 'utf8')
+  saveConfig({ ...cfg, bundledEnvVersion: appVer })
+  console.log('[OddsLocker Desktop] Applied bundled books .env for app version', appVer)
+  return true
+}
+
+function syncUserEnvFromBundle() {
+  return applyBundledEnvOnAppUpgrade() || seedUserEnvFromBundleIfMissing()
+}
+
 function mergeEnvContent(existingContent, { sourceId, terminalUrl, ingestSecret }) {
   const keysToOverride = new Set(['SOURCE_ID', 'TERMINAL_URL', 'TERMINAL_INGEST_SECRET'])
   const lines = (existingContent || '').split(/\r?\n/)
@@ -493,11 +531,14 @@ if (!gotLock) {
 }
 
 app.whenReady().then(() => {
-  seedUserEnvFromBundleIfMissing()
+  const envSynced = syncUserEnvFromBundle()
   const cfg = loadConfig()
   if (cfg.setupComplete && cfg.terminalUrl) {
     createMainWindow()
-    if (cfg.pushingEnabled !== false) startScraper()
+    if (cfg.pushingEnabled !== false) {
+      if (envSynced) stopScraper()
+      startScraper()
+    }
   } else {
     firstRunFlow()
   }
