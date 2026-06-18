@@ -9,8 +9,10 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3000
-/** Optional HTTPS URL to the Windows installer (S3, GitHub release, etc.). Overrides local file when set. */
+/** Optional HTTPS URL to the Windows installer. Overrides auto GitHub URL when set. */
 const SCRAPER_INSTALLER_URL = String(process.env.SCRAPER_INSTALLER_URL || '').trim()
+/** Optional GitHub repo owner/name for auto-built download URLs (overrides scraper-release.json githubRepo). */
+const SCRAPER_INSTALLER_GITHUB_REPO = String(process.env.SCRAPER_INSTALLER_GITHUB_REPO || '').trim()
 const SCRAPER_RELEASE_MANIFEST_PATH = path.join(__dirname, '../scraper-release.json')
 const SCRAPER_DOWNLOADS_DIR = path.join(__dirname, '../downloads')
 const LOGIN_PASSWORD = process.env.TERMINAL_LOGIN_PASSWORD || ''
@@ -33,7 +35,7 @@ function parseWsAllowedTokens(raw) {
 const WS_ALLOWED_TOKENS_LIST = parseWsAllowedTokens(process.env.TERMINAL_WS_ALLOWED_TOKENS || '')
 const WS_TOKEN_AUTH_ENABLED = WS_ALLOWED_TOKENS_LIST.length > 0
 
-/** @typedef {{ version: string, filename: string, productName: string }} ScraperReleaseManifest */
+/** @typedef {{ version: string, filename: string, githubRepo?: string, githubReleaseTagPrefix?: string, productName: string }} ScraperReleaseManifest */
 
 /** @returns {ScraperReleaseManifest | null} */
 function loadScraperReleaseManifest() {
@@ -46,6 +48,8 @@ function loadScraperReleaseManifest() {
     return {
       version,
       filename,
+      githubRepo: String(data.githubRepo || '').trim() || undefined,
+      githubReleaseTagPrefix: String(data.githubReleaseTagPrefix || 'scraper-v').trim() || 'scraper-v',
       productName: String(data.productName || 'OddsLocker Scraper').trim() || 'OddsLocker Scraper'
     }
   } catch {
@@ -54,6 +58,15 @@ function loadScraperReleaseManifest() {
 }
 
 const scraperReleaseManifest = loadScraperReleaseManifest()
+
+function resolveRemoteScraperInstallerUrl(manifest = scraperReleaseManifest) {
+  if (!manifest) return ''
+  if (SCRAPER_INSTALLER_URL) return SCRAPER_INSTALLER_URL
+  const repo = SCRAPER_INSTALLER_GITHUB_REPO || manifest.githubRepo || ''
+  if (!repo) return ''
+  const tag = `${manifest.githubReleaseTagPrefix || 'scraper-v'}${manifest.version}`
+  return `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(manifest.filename)}`
+}
 
 function resolveLocalScraperInstallerPath() {
   if (!scraperReleaseManifest) return null
@@ -65,12 +78,14 @@ function resolveLocalScraperInstallerPath() {
 /** @returns {{ version: string, filename: string, productName: string, available: boolean, href: string, external: boolean } | null} */
 function getScraperDownloadInfo() {
   if (!scraperReleaseManifest) return null
-  if (SCRAPER_INSTALLER_URL) {
+  const remoteUrl = resolveRemoteScraperInstallerUrl()
+  if (remoteUrl) {
     return {
       ...scraperReleaseManifest,
       available: true,
-      href: SCRAPER_INSTALLER_URL,
-      external: true
+      href: remoteUrl,
+      external: true,
+      autoUrl: !SCRAPER_INSTALLER_URL
     }
   }
   const local = resolveLocalScraperInstallerPath()
@@ -1104,6 +1119,7 @@ app.get('/health', (_req, res) => {
           version: scraperDownload.version,
           filename: scraperDownload.filename,
           available: scraperDownload.available,
+          autoUrl: scraperDownload.autoUrl ?? false,
           href: scraperDownload.available ? scraperDownload.href : null
         }
       : null,
@@ -1125,8 +1141,9 @@ app.get('/download/scraper', (req, res) => {
   if (LOGIN_PASSWORD && !isAuthed(req)) {
     return res.redirect('/')
   }
-  if (SCRAPER_INSTALLER_URL) {
-    return res.redirect(302, SCRAPER_INSTALLER_URL)
+  const remoteUrl = resolveRemoteScraperInstallerUrl()
+  if (remoteUrl) {
+    return res.redirect(302, remoteUrl)
   }
   if (!scraperReleaseManifest) {
     return res.status(404).type('text/plain').send('Scraper release manifest missing (terminal/scraper-release.json).')

@@ -2,3 +2,4 @@ node_modules/
 release/
 bundled/default.env
 bundled/scraper.env.local
+assets/icon-square.png

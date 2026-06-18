@@ -314,8 +314,10 @@ function setApplicationMenu() {
 
 /** Same artwork as terminal `/assets/logo.png` (bundled as `assets/icon.png`). */
 function getWindowIconPath() {
-  const p = path.join(__dirname, 'assets', 'icon.png')
-  return fs.existsSync(p) ? p : undefined
+  const ico = path.join(__dirname, 'assets', 'icon.ico')
+  if (fs.existsSync(ico)) return ico
+  const png = path.join(__dirname, 'assets', 'icon.png')
+  return fs.existsSync(png) ? png : undefined
 }
 
 function normalizeTerminalUrl(url) {

@@ -19,7 +19,9 @@ if (!version) {
 
 const manifest = {
   version,
-  filename: `OddsLocker Scraper-Setup-${version}.exe`,
+  filename: `OddsLocker-Scraper-Setup-${version}.exe`,
+  githubRepo: 'BaBouchard/OddsLocker-API',
+  githubReleaseTagPrefix: 'scraper-v',
   productName: 'OddsLocker Scraper'
 }
 const outPath = path.join(root, 'terminal/scraper-release.json')

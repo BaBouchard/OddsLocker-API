@@ -1,13 +1,13 @@
 {
   "name": "oddslocker-scraper-desktop",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "OddsLocker scraper desktop: local WebSocket dashboard + optional browser terminal (Windows installer)",
   "main": "main.cjs",
   "author": "OddsLocker",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "predist": "node ../scripts/prepare-desktop-bundle-env.js && cd .. && npm run build:win",
+    "predist": "node ../scripts/prepare-desktop-icons.js && node ../scripts/prepare-desktop-bundle-env.js && cd .. && npm run build:win",
     "dist": "electron-builder --win",
     "dist:exe-icon": "cd .. && npm run build:win && cd desktop && electron-builder --win -c.win.signAndEditExecutable=true",
     "dist:dir": "electron-builder --win --dir"
@@ -23,13 +23,14 @@
     "directories": {
       "output": "release"
     },
-    "icon": "assets/icon.png",
+    "icon": "assets/icon.ico",
     "files": [
       "main.cjs",
       "preload-setup.cjs",
       "preload-dashboard.cjs",
       "renderer/**/*",
-      "assets/**/*"
+      "assets/icon.png",
+      "assets/icon.ico"
     ],
     "extraResources": [
       {
@@ -50,9 +51,9 @@
           ]
         }
       ],
-      "artifactName": "${productName}-Setup-${version}.${ext}",
-      "icon": "assets/icon.png",
-      "signAndEditExecutable": false,
+      "artifactName": "OddsLocker-Scraper-Setup-${version}.${ext}",
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": true,
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
@@ -61,7 +62,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "OddsLocker Scraper"
+      "shortcutName": "OddsLocker Scraper",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
     }
   }
 }
