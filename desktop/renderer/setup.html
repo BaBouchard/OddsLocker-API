@@ -152,8 +152,8 @@
 
   <ol class="steps">
     <li>Choose which VPS slot this machine reports as.</li>
-    <li>Paste your central terminal URL (Railway / hosted).</li>
-    <li>Import the same <code>.env</code> you use on a working scraper (books, cookies, URLs).</li>
+    <li>Paste your central terminal URL (pre-filled if included with the app).</li>
+    <li>Books configuration is included — only import a .env file if you need to replace it.</li>
   </ol>
 
   <div class="field">
@@ -171,7 +171,7 @@
 
   <div class="field">
     <label for="terminalUrl">Central terminal URL</label>
-    <input type="text" id="terminalUrl" placeholder="https://your-app.up.railway.app" autocomplete="url" />
+    <input type="text" id="terminalUrl" placeholder="https://oddslocker-api-production.up.railway.app" autocomplete="url" />
     <p class="hint">HTTPS URL of the terminal service (ingest + WebSocket).</p>
   </div>
 
@@ -181,10 +181,10 @@
   </div>
 
   <div class="field">
-    <label>Book configuration (.env)</label>
-    <button type="button" class="btn-secondary" id="pickEnv">Choose .env file…</button>
-    <div id="envStatus" class="env-status env-missing">No file selected</div>
-    <p class="hint">We merge SOURCE_ID, TERMINAL_URL, and optional ingest secret into this file and save it for this app only.</p>
+    <label>Book configuration (.env) — optional</label>
+    <button type="button" class="btn-secondary" id="pickEnv">Replace with another .env…</button>
+    <div id="envStatus" class="env-status env-missing">Loading…</div>
+    <p class="hint">The installer includes a books configuration. We merge SOURCE_ID, TERMINAL_URL, and optional ingest secret when you finish setup.</p>
   </div>
 
   <div class="error" id="errorBox"></div>

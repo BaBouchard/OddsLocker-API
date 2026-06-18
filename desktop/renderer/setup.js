@@ -13,16 +13,34 @@ async function init() {
     return
   }
   const cfg = await window.olDesktop.loadConfig()
+  const envInfo = await window.olDesktop.getEnvInfo()
   if (cfg.sourceId) {
     const sel = document.getElementById('sourceId')
     if ([...sel.options].some((o) => o.value === cfg.sourceId)) sel.value = cfg.sourceId
   }
-  if (cfg.terminalUrl) document.getElementById('terminalUrl').value = cfg.terminalUrl
+  if (cfg.terminalUrl) {
+    document.getElementById('terminalUrl').value = cfg.terminalUrl
+  } else if (envInfo.defaultTerminalUrl) {
+    document.getElementById('terminalUrl').value = envInfo.defaultTerminalUrl
+  }
   if (cfg.terminalIngestSecret) document.getElementById('ingestSecret').value = cfg.terminalIngestSecret
-  if (cfg.setupComplete) {
-    document.getElementById('envStatus').textContent = 'Using saved books configuration (.env on this PC). Pick a new file to replace.'
-    document.getElementById('envStatus').classList.remove('env-missing')
-    envText = ' ' // sentinel: save will fall back to on-disk .env unless user picks a file
+
+  const envStatus = document.getElementById('envStatus')
+  if (cfg.setupComplete && envInfo.hasUserEnv) {
+    envStatus.textContent = 'Using saved books configuration on this PC. Pick a file to replace it.'
+    envStatus.classList.remove('env-missing')
+    envText = ' '
+  } else if (envInfo.hasBundledEnv) {
+    envStatus.textContent = `Included with app (${envInfo.settingLines} settings). No import needed.`
+    envStatus.classList.remove('env-missing')
+    envText = null
+  } else if (envInfo.hasUserEnv) {
+    envStatus.textContent = 'Using saved books configuration on this PC.'
+    envStatus.classList.remove('env-missing')
+    envText = ' '
+  } else {
+    envStatus.textContent = 'No bundled configuration — pick a .env file to continue.'
+    envStatus.classList.add('env-missing')
   }
 }
 

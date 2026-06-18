@@ -58,10 +58,18 @@ Quick unpacked folder (no installer): `cd desktop && npm run dist:dir`.
 ## End-user flow
 
 1. Run **OddsLocker Scraper Setup.exe** → install → launch from desktop shortcut.
-2. **Setup wizard**: select **VPS 2** (or any slot), paste terminal **HTTPS URL**, optional **TERMINAL_INGEST_SECRET**, **Choose .env** (copy from a working scraper).
+2. **Setup wizard**: select **VPS 2** (or any slot), confirm terminal **HTTPS URL** (pre-filled when bundled). Books **`.env` is built into the installer** — no file import required.
 3. **Finish & start** → main window shows the **local scraper dashboard**; scraper pushes as `SOURCE_ID=vps2` (or chosen slot).
 
-**File → Settings** reopens the wizard (you can change slot/URL; re-import `.env` only if you need to update book secrets).
+**File → Settings** reopens the wizard (change slot/URL; use **Replace with another .env** only if you need different book cookies).
+
+### Custom bundled .env (when you build the installer)
+
+Before `npm run dist`, the build runs **`scripts/prepare-desktop-bundle-env.js`**, which writes **`desktop/bundled/default.env`** into the installer. Source priority:
+
+1. **`desktop/bundled/scraper.env.local`** (optional; gitignored — copy your working `.env` here for a private build)
+2. Repo root **`.env`** (if present on the build machine)
+3. **`.env.example`** (+ `POLYMARKET_ENABLED=1`, `KALSHI_ENABLED=1`, default terminal URL)
 
 **Help → Open data folder** shows `%APPDATA%/oddslocker-scraper-desktop` (or similar) with `config.json` and `.env`.
 

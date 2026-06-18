@@ -1,13 +1,13 @@
 {
   "name": "oddslocker-scraper-desktop",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "OddsLocker scraper desktop: local WebSocket dashboard + optional browser terminal (Windows installer)",
   "main": "main.cjs",
   "author": "OddsLocker",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "predist": "cd .. && npm run build:win",
+    "predist": "node ../scripts/prepare-desktop-bundle-env.js && cd .. && npm run build:win",
     "dist": "electron-builder --win",
     "dist:exe-icon": "cd .. && npm run build:win && cd desktop && electron-builder --win -c.win.signAndEditExecutable=true",
     "dist:dir": "electron-builder --win --dir"
@@ -35,6 +35,10 @@
       {
         "from": "../dist/live-odds-scraper.exe",
         "to": "scraper.exe"
+      },
+      {
+        "from": "bundled/default.env",
+        "to": "default.env"
       }
     ],
     "win": {

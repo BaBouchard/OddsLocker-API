@@ -23,7 +23,6 @@ const filename = `OddsLocker Scraper-Setup-${version}.exe`
 const envFilename = `.env ${version}`
 const bundleFilename = `OddsLocker-Scraper-${version}.zip`
 const downloadsDir = path.join(root, 'terminal/downloads')
-const envExamplePath = path.join(root, '.env.example')
 const installerPath = path.join(root, 'desktop/release', filename)
 const envPath = path.join(downloadsDir, envFilename)
 const bundlePath = path.join(downloadsDir, bundleFilename)
@@ -31,15 +30,11 @@ const readmePath = path.join(downloadsDir, `README ${version}.txt`)
 
 fs.mkdirSync(downloadsDir, { recursive: true })
 
-const envExample = fs.readFileSync(envExamplePath, 'utf8')
-const envHeader = [
-  `# OddsLocker Scraper environment template v${version}`,
-  '# Copy to .env or import via File → Settings in the desktop app.',
-  '# Fill in poll URLs, cookies, TERMINAL_URL, SOURCE_ID, and book toggles before running.',
-  ''
-].join('\n')
-fs.writeFileSync(envPath, envHeader + envExample, 'utf8')
-console.log('Wrote', envPath)
+execSync(`FORCE_PUBLIC_ENV=1 OUT_PATH=${JSON.stringify(envPath)} node scripts/prepare-desktop-bundle-env.js`, {
+  cwd: root,
+  stdio: 'inherit'
+})
+console.log('Wrote public env template', envPath)
 
 const readme = [
   `OddsLocker Scraper ${version}`,
@@ -49,10 +44,9 @@ const readme = [
   `  - ${envFilename}`,
   '',
   'Setup:',
-  '  1. Run the installer.',
-  '  2. Open File → Settings and import the .env file (or rename it to .env).',
-  '  3. Set TERMINAL_URL, SOURCE_ID, and any book URLs/cookies you use.',
-  '  4. Finish setup and enable Resume pushing.',
+  '  1. Run the installer (books .env is included — no manual import needed).',
+  '  2. Choose VPS slot + terminal URL in the setup wizard, then Finish & start.',
+  '  3. Optional: File → Settings → replace .env if you need different book cookies.',
   ''
 ].join('\n')
 fs.writeFileSync(readmePath, readme, 'utf8')

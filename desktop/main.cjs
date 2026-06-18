@@ -32,26 +32,64 @@ function saveConfig(cfg) {
   fs.writeFileSync(userDataPath(CONFIG_NAME), JSON.stringify(cfg, null, 2), 'utf8')
 }
 
-/** Remove existing keys from .env text and append overrides */
+function readEnvKeyFromContent(content, key, defaultVal) {
+  if (!content) return defaultVal
+  for (const line of content.split(/\r?\n/)) {
+    const t = line.trim()
+    if (!t || t.startsWith('#')) continue
+    const eq = t.indexOf('=')
+    if (eq === -1) continue
+    const k = t.slice(0, eq).trim()
+    if (k !== key) continue
+    let v = t.slice(eq + 1).trim()
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1)
+    }
+    return v || defaultVal
+  }
+  return defaultVal
+}
+
 /** Read a key from userData `.env` (KEY=value), strip optional quotes. */
 function readEnvKeyFromUserData(key, defaultVal) {
   try {
     const text = fs.readFileSync(userDataPath('.env'), 'utf8')
-    for (const line of text.split(/\r?\n/)) {
-      const t = line.trim()
-      if (!t || t.startsWith('#')) continue
-      const eq = t.indexOf('=')
-      if (eq === -1) continue
-      const k = t.slice(0, eq).trim()
-      if (k !== key) continue
-      let v = t.slice(eq + 1).trim()
-      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-        v = v.slice(1, -1)
-      }
-      return v || defaultVal
-    }
+    return readEnvKeyFromContent(text, key, defaultVal)
   } catch (_) {}
   return defaultVal
+}
+
+function getBundledEnvPath() {
+  if (app.isPackaged) {
+    const p = path.join(process.resourcesPath, 'default.env')
+    if (fs.existsSync(p)) return p
+    return null
+  }
+  const devBundled = path.join(__dirname, 'bundled', 'default.env')
+  if (fs.existsSync(devBundled)) return devBundled
+  const example = path.join(__dirname, '..', '.env.example')
+  if (fs.existsSync(example)) return example
+  return null
+}
+
+function readBundledEnvContent() {
+  const p = getBundledEnvPath()
+  if (!p) return null
+  try {
+    return fs.readFileSync(p, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+function seedUserEnvFromBundleIfMissing() {
+  const userEnv = userDataPath('.env')
+  if (fs.existsSync(userEnv)) return false
+  const bundled = readBundledEnvContent()
+  if (!bundled) return false
+  fs.mkdirSync(app.getPath('userData'), { recursive: true })
+  fs.writeFileSync(userEnv, bundled, 'utf8')
+  return true
 }
 
 function mergeEnvContent(existingContent, { sourceId, terminalUrl, ingestSecret }) {
@@ -314,6 +352,27 @@ function openSetupWindow({ settings = false } = {}) {
 
 ipcMain.handle('config:load', () => loadConfig())
 
+ipcMain.handle('setup:get-env-info', () => {
+  const bundled = readBundledEnvContent()
+  let hasUserEnv = false
+  try {
+    fs.accessSync(userDataPath('.env'))
+    hasUserEnv = true
+  } catch (_) {}
+  const settingLines = bundled
+    ? bundled.split(/\r?\n/).filter((line) => {
+        const t = line.trim()
+        return t && !t.startsWith('#') && t.includes('=')
+      }).length
+    : 0
+  return {
+    hasBundledEnv: !!bundled,
+    hasUserEnv,
+    settingLines,
+    defaultTerminalUrl: readEnvKeyFromContent(bundled, 'TERMINAL_URL', '')
+  }
+})
+
 ipcMain.handle('dashboard:get-info', () => {
   const cfg = loadConfig()
   const portRaw = readEnvKeyFromUserData('WS_SERVER_PORT', '8765')
@@ -365,7 +424,14 @@ ipcMain.handle('setup:save', async (_evt, payload) => {
     try {
       baseEnv = fs.readFileSync(userDataPath('.env'), 'utf8')
     } catch {
-      return { ok: false, error: 'Import a .env file (copy from your VPS or local scraper folder).' }
+      const bundled = readBundledEnvContent()
+      if (bundled) baseEnv = bundled
+      else {
+        return {
+          ok: false,
+          error: 'No books configuration found. Choose a .env file or reinstall the app.'
+        }
+      }
     }
   }
 
@@ -427,6 +493,7 @@ if (!gotLock) {
 }
 
 app.whenReady().then(() => {
+  seedUserEnvFromBundleIfMissing()
   const cfg = loadConfig()
   if (cfg.setupComplete && cfg.terminalUrl) {
     createMainWindow()
