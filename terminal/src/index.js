@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import crypto from 'node:crypto'
+import fs from 'node:fs'
 import express from 'express'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
@@ -8,6 +9,10 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3000
+/** Optional HTTPS URL to the Windows installer (S3, GitHub release, etc.). Overrides local file when set. */
+const SCRAPER_INSTALLER_URL = String(process.env.SCRAPER_INSTALLER_URL || '').trim()
+const SCRAPER_RELEASE_MANIFEST_PATH = path.join(__dirname, '../scraper-release.json')
+const SCRAPER_DOWNLOADS_DIR = path.join(__dirname, '../downloads')
 const LOGIN_PASSWORD = process.env.TERMINAL_LOGIN_PASSWORD || ''
 /** If set, scrapers must send header X-Terminal-Ingest-Secret: <same value>. Ingest never uses the browser login cookie. */
 const TERMINAL_INGEST_SECRET = String(process.env.TERMINAL_INGEST_SECRET || '').trim()
@@ -27,6 +32,79 @@ function parseWsAllowedTokens(raw) {
 
 const WS_ALLOWED_TOKENS_LIST = parseWsAllowedTokens(process.env.TERMINAL_WS_ALLOWED_TOKENS || '')
 const WS_TOKEN_AUTH_ENABLED = WS_ALLOWED_TOKENS_LIST.length > 0
+
+/** @typedef {{ version: string, filename: string, productName: string }} ScraperReleaseManifest */
+
+/** @returns {ScraperReleaseManifest | null} */
+function loadScraperReleaseManifest() {
+  try {
+    const raw = fs.readFileSync(SCRAPER_RELEASE_MANIFEST_PATH, 'utf8')
+    const data = JSON.parse(raw)
+    const version = String(data.version || '').trim()
+    const filename = String(data.filename || '').trim()
+    if (!version || !filename) return null
+    return {
+      version,
+      filename,
+      productName: String(data.productName || 'OddsLocker Scraper').trim() || 'OddsLocker Scraper'
+    }
+  } catch {
+    return null
+  }
+}
+
+const scraperReleaseManifest = loadScraperReleaseManifest()
+
+/** @returns {{ version: string, filename: string, productName: string, available: boolean, href: string, external: boolean } | null} */
+function getScraperDownloadInfo() {
+  if (!scraperReleaseManifest) return null
+  const localPath = path.join(SCRAPER_DOWNLOADS_DIR, scraperReleaseManifest.filename)
+  const hasLocal = fs.existsSync(localPath)
+  if (!SCRAPER_INSTALLER_URL && !hasLocal) {
+    return { ...scraperReleaseManifest, available: false, href: '', external: false }
+  }
+  return {
+    ...scraperReleaseManifest,
+    available: true,
+    href: SCRAPER_INSTALLER_URL || '/download/scraper',
+    external: !!SCRAPER_INSTALLER_URL
+  }
+}
+
+function escapeHtmlAttr(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function escapeHtmlText(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function getScraperDownloadButtonHtml() {
+  const info = getScraperDownloadInfo()
+  if (!info?.available) return ''
+  const attrs = info.external
+    ? ' target="_blank" rel="noopener noreferrer"'
+    : ' download'
+  return (
+    '<a class="download-scraper" href="' +
+    escapeHtmlAttr(info.href) +
+    '"' +
+    attrs +
+    '>Download ' +
+    escapeHtmlText(info.productName) +
+    ' v' +
+    escapeHtmlText(info.version) +
+    '</a>'
+  )
+}
 
 function getWsTokenFromRawRequest(request) {
   const raw = request.url || '/'
@@ -126,7 +204,7 @@ function clearAllTerminalOddsState() {
 }
 
 const VPS_SLOTS = ['vps1', 'vps2', 'vps3', 'vps4', 'vps5', 'vps6']
-const KNOWN_SPORTSBOOKS = ['BetRivers', 'FanDuel', 'Bovada', 'PointsBet', 'BetMGM', '888sport']
+const KNOWN_SPORTSBOOKS = ['BetRivers', 'FanDuel', 'Bovada', 'PointsBet', 'BetMGM', '888sport', 'The Score Bet', 'Polymarket', 'Kalshi']
 
 function sourceToSlot(sourceId) {
   if (!sourceId) return null
@@ -198,7 +276,7 @@ function mergeAndBroadcast() {
   }
 }
 
-const CSV_HEADERS = ['sport', 'league', 'event_id', 'home_team', 'away_team', 'market_type', 'outcome_name', 'line_value', 'sportsbook', 'odds_american', 'odds_decimal', 'commence_time', 'is_live', 'bookmaker_link']
+const CSV_HEADERS = ['sport', 'league', 'event_id', 'home_team', 'away_team', 'market_type', 'outcome_name', 'line_value', 'sportsbook', 'odds_american', 'odds_decimal', 'share_price', 'ask_size', 'max_stake_usd', 'commence_time', 'is_live', 'bookmaker_link']
 
 function escapeCsvField(val) {
   if (val == null) return ''
@@ -319,6 +397,7 @@ app.get('/', (req, res) => {
     </html>
     `)
   }
+  const scraperDownloadButtonHtml = getScraperDownloadButtonHtml()
   res.type('html').send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -356,8 +435,23 @@ app.get('/', (req, res) => {
           align-items: center;
           gap: 1rem;
           margin-bottom: 0.25rem;
+          flex-wrap: wrap;
         }
         .header img { height: 42px; width: auto; display: block; }
+        .header-actions { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+        a.download-scraper {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.45rem 0.9rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #a855f7, #6366f1);
+          color: #fff;
+          font-size: 0.82rem;
+          font-weight: 500;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+        a.download-scraper:hover { background: linear-gradient(135deg, #9333ea, #4f46e5); }
         h1 {
           font-size: 1.75rem;
           font-weight: 600;
@@ -544,6 +638,7 @@ app.get('/', (req, res) => {
         <div class="header">
           <img src="/assets/logo.png" alt="OddsLocker">
           <h1>OddsLocker API</h1>
+          ${scraperDownloadButtonHtml ? `<div class="header-actions">${scraperDownloadButtonHtml}</div>` : ''}
         </div>
         <p class="tagline">Central aggregator — merge and broadcast normalized odds to website clients.</p>
         <div class="section-title">VPS status <span class="lw-sub">(heat border: demo levels until scrapers report heat)</span></div>
@@ -573,7 +668,7 @@ app.get('/', (req, res) => {
                 <th>Sportsbook</th>
                 <th>Market</th>
                 <th>Outcome</th>
-                <th>Odds</th>
+                <th>Odds (¢ · US)</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -708,6 +803,69 @@ app.get('/', (req, res) => {
           const div = document.createElement('div')
           div.textContent = s
           return div.innerHTML
+        }
+        function formatSharePriceCents(sharePrice) {
+          if (sharePrice == null || Number.isNaN(Number(sharePrice))) return null
+          const p = Number(sharePrice)
+          if (p <= 0 || p >= 1) return null
+          const cents = p * 100
+          if (cents >= 10) return Math.round(cents) + '¢'
+          if (cents >= 1) return parseFloat(cents.toFixed(1)) + '¢'
+          return parseFloat(cents.toFixed(2)) + '¢'
+        }
+        function formatAmericanOdds(american) {
+          if (american == null || Number.isNaN(Number(american))) return ''
+          const n = Number(american)
+          return n > 0 ? '+' + n : String(n)
+        }
+        function formatCompactUsd(usd) {
+          if (usd == null || Number.isNaN(Number(usd))) return null
+          const n = Number(usd)
+          if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M'
+          if (n >= 1000) return '$' + Math.round(n / 1000) + 'k'
+          return '$' + Math.round(n)
+        }
+        function formatOddsDisplay(entry) {
+          const cents = formatSharePriceCents(entry && entry.share_price)
+          const am = formatAmericanOdds(entry && entry.odds_american)
+          let base = ''
+          if (cents && am) base = cents + ' · ' + am
+          else if (cents) base = cents
+          else base = am
+          const askSize = entry && entry.ask_size
+          if (askSize != null && !Number.isNaN(Number(askSize))) {
+            const sh = Number(askSize)
+            const usd = formatCompactUsd(entry.max_stake_usd)
+            if (sh > 0) {
+              const shLabel = sh >= 1000 ? (sh / 1000).toFixed(1) + 'k sh' : Math.round(sh) + ' sh'
+              base = base ? base + ' · ' + shLabel + (usd ? ' (' + usd + ')' : '') : shLabel + (usd ? ' (' + usd + ')' : '')
+            }
+          }
+          return base
+        }
+        function formatLineValue(line) {
+          if (line == null || Number.isNaN(Number(line))) return null
+          const n = Number(line)
+          return n > 0 ? '+' + n : String(n)
+        }
+        function formatMarketTypeDisplay(entry) {
+          const mt = (entry && entry.market_type) || ''
+          if (mt === 'total' && entry && entry.line_value != null && !Number.isNaN(Number(entry.line_value))) {
+            return mt + ' ' + entry.line_value
+          }
+          const line = formatLineValue(entry && entry.line_value)
+          if (mt === 'spread' && line) return mt + ' ' + line
+          return mt
+        }
+        function formatOutcomeDisplay(entry) {
+          const name = (entry && entry.outcome_name) || ''
+          const mt = (entry && entry.market_type) || ''
+          if (mt === 'total' && entry && entry.line_value != null && !Number.isNaN(Number(entry.line_value))) {
+            return (name + ' ' + entry.line_value).trim()
+          }
+          const line = formatLineValue(entry && entry.line_value)
+          if (mt === 'spread' && line) return (name + ' ' + line).trim()
+          return name
         }
         function formatAgo(ts) {
           if (!ts) return '—'
@@ -890,10 +1048,11 @@ app.get('/', (req, res) => {
           data.slice(0, max).forEach(e => {
             const tr = document.createElement('tr')
             const ev = (e.away_team && e.home_team) ? e.away_team + ' @ ' + e.home_team : e.event_id || ''
-            const oddsCell = (e.bookmaker_link && (e.odds_american != null || e.odds_american === 0))
-              ? '<a href="' + escapeHtml(e.bookmaker_link) + '" target="_blank" rel="noopener noreferrer" class="odds-link">' + escapeHtml(String(e.odds_american)) + '</a>'
-              : (e.odds_american != null ? escapeHtml(String(e.odds_american)) : '')
-            tr.innerHTML = '<td>'+ escapeHtml(e.sport||'') +'</td><td>'+ escapeHtml(e.league||'') +'</td><td>'+ escapeHtml(ev) +'</td><td>'+ escapeHtml(e.sportsbook||'') +'</td><td>'+ escapeHtml(e.market_type||'') +'</td><td>'+ escapeHtml(e.outcome_name||'') +'</td><td>'+ oddsCell +'</td>'
+            const oddsLabel = formatOddsDisplay(e)
+            const oddsCell = (e.bookmaker_link && oddsLabel)
+              ? '<a href="' + escapeHtml(e.bookmaker_link) + '" target="_blank" rel="noopener noreferrer" class="odds-link">' + escapeHtml(oddsLabel) + '</a>'
+              : escapeHtml(oddsLabel)
+            tr.innerHTML = '<td>'+ escapeHtml(e.sport||'') +'</td><td>'+ escapeHtml(e.league||'') +'</td><td>'+ escapeHtml(ev) +'</td><td>'+ escapeHtml(e.sportsbook||'') +'</td><td>'+ escapeHtml(formatMarketTypeDisplay(e)) +'</td><td>'+ escapeHtml(formatOutcomeDisplay(e)) +'</td><td>'+ oddsCell +'</td>'
             tbody.appendChild(tr)
           })
           if (data.length > max) {
@@ -921,10 +1080,18 @@ app.post('/login', (req, res) => {
 })
 
 app.get('/health', (_req, res) => {
+  const scraperDownload = getScraperDownloadInfo()
   res.json({
     ok: true,
     sources: Object.keys(lastBySource).length,
     viewers: viewers.size,
+    scraperDownload: scraperDownload
+      ? {
+          version: scraperDownload.version,
+          available: scraperDownload.available,
+          href: scraperDownload.available ? scraperDownload.href : null
+        }
+      : null,
     ws: {
       tokenAuthEnabled: WS_TOKEN_AUTH_ENABLED,
       tokenSlots: WS_ALLOWED_TOKENS_LIST.length,
@@ -937,6 +1104,30 @@ app.get('/health', (_req, res) => {
             : 'Open (no WS auth).'
     }
   })
+})
+
+app.get('/download/scraper', (req, res) => {
+  if (LOGIN_PASSWORD && !isAuthed(req)) {
+    return res.redirect('/')
+  }
+  if (SCRAPER_INSTALLER_URL) {
+    return res.redirect(302, SCRAPER_INSTALLER_URL)
+  }
+  if (!scraperReleaseManifest) {
+    return res.status(404).type('text/plain').send('Scraper release manifest missing (terminal/scraper-release.json).')
+  }
+  const filePath = path.join(SCRAPER_DOWNLOADS_DIR, scraperReleaseManifest.filename)
+  if (!fs.existsSync(filePath)) {
+    return res
+      .status(404)
+      .type('text/plain')
+      .send(
+        'Installer not on this server. Set SCRAPER_INSTALLER_URL or place the .exe in terminal/downloads/.'
+      )
+  }
+  res.setHeader('Content-Type', 'application/octet-stream')
+  res.setHeader('Content-Disposition', `attachment; filename="${scraperReleaseManifest.filename}"`)
+  fs.createReadStream(filePath).pipe(res)
 })
 
 app.get('/export/csv', (_req, res) => {

@@ -60,6 +60,17 @@ If **other** VPS scrapers are still posting (including empty payloads), their in
 
 While this flag is on, **empty** `data: []` ingests are **ignored** (no clear, no update) so a stale worker cannot wipe the feed. To clear the board, turn the flag off or POST from a client that sends real rows.
 
+## Scraper installer download (dashboard button)
+
+The terminal dashboard can show **Download OddsLocker Scraper vX** when an installer is configured.
+
+1. **`terminal/scraper-release.json`** — version + expected filename (sync from desktop with `node scripts/sync-scraper-release.js` after bumping `desktop/package.json`).
+2. **Host the `.exe` one of two ways:**
+   - **`SCRAPER_INSTALLER_URL`** — full HTTPS URL (recommended on Railway: S3, GitHub Releases, etc.). `/download/scraper` redirects there.
+   - **Local file** — copy `OddsLocker Scraper-Setup-<version>.exe` into **`terminal/downloads/`** on the server (gitignored; upload via deploy artifact or volume).
+
+The button appears only when a URL or local file is available. **`/health`** includes `scraperDownload.version` and `available`.
+
 ## Deploy (e.g. Railway)
 
 Deploy the `terminal` folder as its own service. Set `PORT` if needed (Railway sets it). Use the service’s public URL as `TERMINAL_URL` in your scrapers, and connect your website to `wss://<that-url>` for the live feed.

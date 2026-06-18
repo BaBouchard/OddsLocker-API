@@ -36,6 +36,76 @@
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
   }
 
+  function formatSharePriceCents(sharePrice) {
+    if (sharePrice == null || Number.isNaN(Number(sharePrice))) return null
+    const p = Number(sharePrice)
+    if (p <= 0 || p >= 1) return null
+    const cents = p * 100
+    if (cents >= 10) return Math.round(cents) + '¢'
+    if (cents >= 1) return parseFloat(cents.toFixed(1)) + '¢'
+    return parseFloat(cents.toFixed(2)) + '¢'
+  }
+
+  function formatAmericanOdds(american) {
+    if (american == null || Number.isNaN(Number(american))) return ''
+    const n = Number(american)
+    return n > 0 ? '+' + n : String(n)
+  }
+
+  function formatCompactUsd(usd) {
+    if (usd == null || Number.isNaN(Number(usd))) return null
+    const n = Number(usd)
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1000) return `$${Math.round(n / 1000)}k`
+    return `$${Math.round(n)}`
+  }
+
+  function formatOddsDisplay(entry) {
+    const cents = formatSharePriceCents(entry?.share_price)
+    const am = formatAmericanOdds(entry?.odds_american)
+    let base = ''
+    if (cents && am) base = `${cents} · ${am}`
+    else if (cents) base = cents
+    else base = am
+    const askSize = entry?.ask_size
+    if (askSize != null && !Number.isNaN(Number(askSize))) {
+      const sh = Number(askSize)
+      const usd = formatCompactUsd(entry?.max_stake_usd)
+      if (sh > 0) {
+        const shLabel = sh >= 1000 ? `${(sh / 1000).toFixed(1)}k sh` : `${Math.round(sh)} sh`
+        base = base ? `${base} · ${shLabel}${usd ? ` (${usd})` : ''}` : `${shLabel}${usd ? ` (${usd})` : ''}`
+      }
+    }
+    return base
+  }
+
+  function formatLineValue(line) {
+    if (line == null || Number.isNaN(Number(line))) return null
+    const n = Number(line)
+    return n > 0 ? '+' + n : String(n)
+  }
+
+  function formatMarketTypeDisplay(entry) {
+    const mt = entry?.market_type || ''
+    if (mt === 'total' && entry?.line_value != null && !Number.isNaN(Number(entry.line_value))) {
+      return `${mt} ${entry.line_value}`
+    }
+    const line = formatLineValue(entry?.line_value)
+    if (mt === 'spread' && line) return `${mt} ${line}`
+    return mt
+  }
+
+  function formatOutcomeDisplay(entry) {
+    const name = entry?.outcome_name || ''
+    const mt = entry?.market_type || ''
+    if (mt === 'total' && entry?.line_value != null && !Number.isNaN(Number(entry.line_value))) {
+      return `${name} ${entry.line_value}`.trim()
+    }
+    const line = formatLineValue(entry?.line_value)
+    if (mt === 'spread' && line) return `${name} ${line}`.trim()
+    return name
+  }
+
   function renderOddsTable(entries) {
     oddsTableBody.innerHTML = ''
     if (!Array.isArray(entries) || entries.length === 0) return
@@ -50,9 +120,9 @@
         e.league || '',
         eventLabel || '',
         e.sportsbook || '',
-        e.market_type || '',
-        e.outcome_name || '',
-        e.odds_american != null ? String(e.odds_american) : ''
+        formatMarketTypeDisplay(e),
+        formatOutcomeDisplay(e),
+        formatOddsDisplay(e)
       ]
       cells.forEach((val, idx) => {
         const td = document.createElement('td')

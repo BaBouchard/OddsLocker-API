@@ -4,3 +4,4 @@ dist/
 .league-watcher-cache.json
 *.log
 .DS_Store
+terminal/downloads/*.exe

@@ -8,6 +8,9 @@ import { BovadaAdapter } from './adapters/bovada.js'
 import { PointsBetAdapter } from './adapters/pointsbet.js'
 import { BetMGMAdapter } from './adapters/betmgm.js'
 import { EightEightEightAdapter } from './adapters/eightsport.js'
+import { TheScoreAdapter } from './adapters/thescore.js'
+import { PolymarketAdapter } from './adapters/polymarket.js'
+import { KalshiAdapter } from './adapters/kalshi.js'
 import { MockAdapter } from './adapters/mock.js'
 import { ScrapeAdapter } from './adapters/scrape.js'
 import { mergeSnapshotWithPersistentCache } from './league-watcher-cache.js'
@@ -149,6 +152,60 @@ function getBookConfigs() {
         sportsbookName: process.env.EIGHTS_NAME || '888sport',
         bookmakerBaseUrl: process.env.EIGHTS_BOOKMAKER_BASE_URL || 'https://www.888sport.com',
         cookie: process.env.EIGHTS_COOKIE || null
+      }
+    })
+  }
+  if (process.env.THESCORE_POLL_URL) {
+    books.push({
+      bookId: 'thescore',
+      name: process.env.THESCORE_NAME || 'The Score Bet',
+      adapter: 'thescore',
+      config: {
+        bookId: 'thescore',
+        pollUrl: process.env.THESCORE_POLL_URL,
+        pollIntervalMs: process.env.POLL_INTERVAL_MS || 2000,
+        sportsbookName: process.env.THESCORE_NAME || 'The Score Bet',
+        bookmakerBaseUrl: process.env.THESCORE_BOOKMAKER_BASE_URL || 'https://sportsbook.thescore.bet',
+        cookie: process.env.THESCORE_COOKIE || null,
+        anonAuth: process.env.THESCORE_ANON_AUTH || null,
+        origin: process.env.THESCORE_ORIGIN || 'https://sportsbook.thescore.bet',
+        referer: process.env.THESCORE_REFERER || 'https://sportsbook.thescore.bet/',
+        sections: process.env.THESCORE_SECTIONS || null
+      }
+    })
+  }
+  if (process.env.POLYMARKET_ENABLED === '1' || process.env.POLYMARKET_ENABLED === 'true') {
+    books.push({
+      bookId: 'polymarket',
+      name: process.env.POLYMARKET_NAME || 'Polymarket',
+      adapter: 'polymarket',
+      config: {
+        bookId: 'polymarket',
+        pollIntervalMs: process.env.POLL_INTERVAL_MS || 2000,
+        sportsbookName: process.env.POLYMARKET_NAME || 'Polymarket',
+        bookmakerBaseUrl: process.env.POLYMARKET_BOOKMAKER_BASE_URL || 'https://polymarket.com',
+        catalogUrl: process.env.POLYMARKET_CATALOG_URL || null,
+        booksUrl: process.env.POLYMARKET_BOOKS_URL || process.env.POLYMARKET_PRICES_URL || null,
+        marketTypes: process.env.POLYMARKET_MARKET_TYPES || null,
+        pageLimit: process.env.POLYMARKET_PAGE_LIMIT || null,
+        maxPages: process.env.POLYMARKET_MAX_PAGES || null
+      }
+    })
+  }
+  if (process.env.KALSHI_ENABLED === '1' || process.env.KALSHI_ENABLED === 'true') {
+    books.push({
+      bookId: 'kalshi',
+      name: process.env.KALSHI_NAME || 'Kalshi',
+      adapter: 'kalshi',
+      config: {
+        bookId: 'kalshi',
+        pollIntervalMs: process.env.POLL_INTERVAL_MS || 2000,
+        sportsbookName: process.env.KALSHI_NAME || 'Kalshi',
+        bookmakerBaseUrl: process.env.KALSHI_BOOKMAKER_BASE_URL || 'https://kalshi.com',
+        apiBaseUrl: process.env.KALSHI_API_BASE_URL || null,
+        seriesTickers: process.env.KALSHI_SERIES_TICKERS || null,
+        pageLimit: process.env.KALSHI_PAGE_LIMIT || null,
+        maxPages: process.env.KALSHI_MAX_PAGES || null
       }
     })
   }
@@ -306,7 +363,13 @@ async function main() {
               ? new BetMGMAdapter(book.config)
               : book.adapter === '888sport'
                 ? new EightEightEightAdapter(book.config)
-                : new PollAdapter(book.config)
+                : book.adapter === 'thescore'
+                  ? new TheScoreAdapter(book.config)
+                  : book.adapter === 'polymarket'
+                    ? new PolymarketAdapter(book.config)
+                    : book.adapter === 'kalshi'
+                      ? new KalshiAdapter(book.config)
+                      : new PollAdapter(book.config)
       const bookKey = book.config.sportsbookName
       adapters.push(adapter)
       await adapter.start(LEAGUE_KEY, (entries, meta) => {
