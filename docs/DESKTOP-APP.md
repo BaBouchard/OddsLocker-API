@@ -42,13 +42,13 @@ The dashboard shows **App v…** (same number as `desktop/package.json`) under t
 
 Before each release build, bump **`version`** in **`desktop/package.json`** (e.g. `1.1.0` → `1.2.0`). Electron Builder names the file **`OddsLocker Scraper-Setup-<version>.exe`**. Use **semver**: patch for small fixes, minor for new features, major for breaking changes.
 
-Then sync the terminal download manifest and publish the installer:
+Then sync the terminal download manifest:
 
 ```bash
 node scripts/sync-scraper-release.js
 ```
 
-That updates **`terminal/scraper-release.json`**, writes **`.env <version>`** from **`.env.example`**, and builds **`OddsLocker-Scraper-<version>.zip`** (installer + env + README). On your terminal host, set **`SCRAPER_INSTALLER_URL`** to the public **zip** URL (or upload `terminal/downloads/` to the server). See **`terminal/README.md`**.
+That updates **`terminal/scraper-release.json`**. On your terminal host, set **`SCRAPER_INSTALLER_URL`** to the public **`.exe`** URL (GitHub Releases). Books **`.env` is bundled inside the installer** — no separate download. See **`terminal/README.md`**.
 
 - **`npm run predist`** runs automatically before `dist` and rebuilds `../dist/live-odds-scraper.exe`.
 - Building the **installer** is typically done on **Windows** (electron-builder NSIS). You can run `npm run dist` on macOS only if your toolchain supports it; for fewer surprises, use Windows for release builds.

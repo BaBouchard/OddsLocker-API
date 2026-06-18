@@ -62,17 +62,12 @@ While this flag is on, **empty** `data: []` ingests are **ignored** (no clear, n
 
 ## Scraper installer download (dashboard button)
 
-The terminal dashboard can show **Download OddsLocker Scraper vX (.exe + .env)** when a release bundle is configured.
+The terminal dashboard can show **Download OddsLocker Scraper vX** when an installer is configured.
 
-1. **`terminal/scraper-release.json`** — version + filenames (sync with `node scripts/sync-scraper-release.js` after bumping `desktop/package.json`).
-2. **`scripts/sync-scraper-release.js`** also writes **`terminal/downloads/.env <version>`** from **`.env.example`** and zips installer + env into **`OddsLocker-Scraper-<version>.zip`**.
-3. **Host the bundle one of two ways:**
-   - **`SCRAPER_INSTALLER_URL`** — full HTTPS URL to the **zip** (recommended on Railway: GitHub Releases). `/download/scraper` redirects there.
-   - **Local files** — copy **`terminal/downloads/`** contents to the server (gitignored).
+1. **`terminal/scraper-release.json`** — version + installer filename (sync with `node scripts/sync-scraper-release.js` after bumping `desktop/package.json`).
+2. **Host the installer** via **`SCRAPER_INSTALLER_URL`** (GitHub Releases `.exe` URL recommended) or copy the `.exe` into **`terminal/downloads/`** on the server.
 
-Optional: **`GET /download/scraper-env`** serves only the versioned `.env` template.
-
-The button appears only when a URL or local bundle exists. **`/health`** includes `scraperDownload.version`, `envFilename`, and `includesEnv`.
+Books **`.env` is bundled inside the desktop installer** — users do not download a separate env file. **`/health`** includes `scraperDownload.version`, `filename`, and `available`.
 
 ## Deploy (e.g. Railway)
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Push terminal code, publish installer + .env zip to GitHub Releases, set Railway SCRAPER_INSTALLER_URL.
+# Push terminal code, publish installer to GitHub Releases, set Railway SCRAPER_INSTALLER_URL.
 # Prerequisites (one time): gh auth login && npx @railway/cli login
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo "==> Sync scraper-release.json, .env template, and release zip"
+echo "==> Sync scraper-release.json from desktop/package.json"
 node scripts/sync-scraper-release.js
 
 read_manifest() {
@@ -15,24 +15,12 @@ read_manifest() {
 
 VERSION="$(read_manifest version)"
 FILENAME="$(read_manifest filename)"
-ENV_FILENAME="$(read_manifest envFilename)"
-BUNDLE_FILENAME="$(read_manifest bundleFilename)"
 INSTALLER="$ROOT/desktop/release/$FILENAME"
-ENV_FILE="$ROOT/terminal/downloads/$ENV_FILENAME"
-BUNDLE="$ROOT/terminal/downloads/$BUNDLE_FILENAME"
 TAG="scraper-v${VERSION}"
 
 if [[ ! -f "$INSTALLER" ]]; then
   echo "Missing installer: $INSTALLER"
   echo "Build it first: cd desktop && npm run dist"
-  exit 1
-fi
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Missing env template: $ENV_FILE"
-  exit 1
-fi
-if [[ ! -f "$BUNDLE" ]]; then
-  echo "Missing release zip: $BUNDLE"
   exit 1
 fi
 
@@ -49,21 +37,21 @@ echo "==> Push main"
 git push origin main
 
 REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
-ENCODED_BUNDLE="$(node -p "encodeURIComponent(process.argv[1])" "$BUNDLE_FILENAME")"
-DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${ENCODED_BUNDLE}"
+ENCODED_NAME="$(node -p "encodeURIComponent(process.argv[1])" "$FILENAME")"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${ENCODED_NAME}"
 
 echo "==> GitHub release ${TAG}"
 if gh release view "$TAG" >/dev/null 2>&1; then
-  gh release upload "$TAG" "$BUNDLE" "$INSTALLER" "$ENV_FILE" --clobber
-  echo "Updated existing release assets."
+  gh release upload "$TAG" "$INSTALLER" --clobber
+  echo "Updated existing release asset."
 else
-  gh release create "$TAG" "$BUNDLE" "$INSTALLER" "$ENV_FILE" \
+  gh release create "$TAG" "$INSTALLER" \
     --title "OddsLocker Scraper ${VERSION}" \
-    --notes "Windows installer, versioned .env template (${ENV_FILENAME}), and ${BUNDLE_FILENAME} bundle."
+    --notes "Windows NSIS installer for OddsLocker Scraper ${VERSION}. Books .env is bundled inside the app."
 fi
 
 echo ""
-echo "Download bundle URL (set on Railway as SCRAPER_INSTALLER_URL):"
+echo "Installer URL (set on Railway as SCRAPER_INSTALLER_URL):"
 echo "  ${DOWNLOAD_URL}"
 echo ""
 
@@ -84,4 +72,4 @@ else
 fi
 
 echo ""
-echo "Done. Download button serves ${BUNDLE_FILENAME} (installer + ${ENV_FILENAME})."
+echo "Done. Download button serves ${FILENAME}."

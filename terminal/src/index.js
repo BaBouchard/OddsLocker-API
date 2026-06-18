@@ -33,7 +33,7 @@ function parseWsAllowedTokens(raw) {
 const WS_ALLOWED_TOKENS_LIST = parseWsAllowedTokens(process.env.TERMINAL_WS_ALLOWED_TOKENS || '')
 const WS_TOKEN_AUTH_ENABLED = WS_ALLOWED_TOKENS_LIST.length > 0
 
-/** @typedef {{ version: string, filename: string, envFilename: string, bundleFilename: string, productName: string }} ScraperReleaseManifest */
+/** @typedef {{ version: string, filename: string, productName: string }} ScraperReleaseManifest */
 
 /** @returns {ScraperReleaseManifest | null} */
 function loadScraperReleaseManifest() {
@@ -42,14 +42,10 @@ function loadScraperReleaseManifest() {
     const data = JSON.parse(raw)
     const version = String(data.version || '').trim()
     const filename = String(data.filename || '').trim()
-    const envFilename = String(data.envFilename || `.env ${version}`).trim()
-    const bundleFilename = String(data.bundleFilename || `OddsLocker-Scraper-${version}.zip`).trim()
     if (!version || !filename) return null
     return {
       version,
       filename,
-      envFilename,
-      bundleFilename,
       productName: String(data.productName || 'OddsLocker Scraper').trim() || 'OddsLocker Scraper'
     }
   } catch {
@@ -59,42 +55,33 @@ function loadScraperReleaseManifest() {
 
 const scraperReleaseManifest = loadScraperReleaseManifest()
 
-function resolveLocalScraperDownloadPath() {
+function resolveLocalScraperInstallerPath() {
   if (!scraperReleaseManifest) return null
-  const bundlePath = path.join(SCRAPER_DOWNLOADS_DIR, scraperReleaseManifest.bundleFilename)
-  if (fs.existsSync(bundlePath)) {
-    return { filePath: bundlePath, downloadName: scraperReleaseManifest.bundleFilename, includesEnv: true }
-  }
   const exePath = path.join(SCRAPER_DOWNLOADS_DIR, scraperReleaseManifest.filename)
-  if (fs.existsSync(exePath)) {
-    return { filePath: exePath, downloadName: scraperReleaseManifest.filename, includesEnv: false }
-  }
-  return null
+  if (!fs.existsSync(exePath)) return null
+  return { filePath: exePath, downloadName: scraperReleaseManifest.filename }
 }
 
-/** @returns {{ version: string, filename: string, envFilename: string, bundleFilename: string, productName: string, available: boolean, href: string, external: boolean, includesEnv: boolean } | null} */
+/** @returns {{ version: string, filename: string, productName: string, available: boolean, href: string, external: boolean } | null} */
 function getScraperDownloadInfo() {
   if (!scraperReleaseManifest) return null
-  const local = resolveLocalScraperDownloadPath()
   if (SCRAPER_INSTALLER_URL) {
-    const urlIncludesZip = /\.zip(?:$|[?#])/i.test(SCRAPER_INSTALLER_URL)
     return {
       ...scraperReleaseManifest,
       available: true,
       href: SCRAPER_INSTALLER_URL,
-      external: true,
-      includesEnv: urlIncludesZip
+      external: true
     }
   }
+  const local = resolveLocalScraperInstallerPath()
   if (!local) {
-    return { ...scraperReleaseManifest, available: false, href: '', external: false, includesEnv: false }
+    return { ...scraperReleaseManifest, available: false, href: '', external: false }
   }
   return {
     ...scraperReleaseManifest,
     available: true,
     href: '/download/scraper',
-    external: false,
-    includesEnv: local.includesEnv
+    external: false
   }
 }
 
@@ -120,7 +107,6 @@ function getScraperDownloadButtonHtml() {
   const attrs = info.external
     ? ' target="_blank" rel="noopener noreferrer"'
     : ' download'
-  const suffix = info.includesEnv ? ' (.exe + .env)' : ''
   return (
     '<a class="download-scraper" href="' +
     escapeHtmlAttr(info.href) +
@@ -130,7 +116,6 @@ function getScraperDownloadButtonHtml() {
     escapeHtmlText(info.productName) +
     ' v' +
     escapeHtmlText(info.version) +
-    escapeHtmlText(suffix) +
     '</a>'
   )
 }
@@ -1117,9 +1102,7 @@ app.get('/health', (_req, res) => {
     scraperDownload: scraperDownload
       ? {
           version: scraperDownload.version,
-          envFilename: scraperDownload.envFilename,
-          bundleFilename: scraperDownload.bundleFilename,
-          includesEnv: scraperDownload.includesEnv,
+          filename: scraperDownload.filename,
           available: scraperDownload.available,
           href: scraperDownload.available ? scraperDownload.href : null
         }
@@ -1148,40 +1131,18 @@ app.get('/download/scraper', (req, res) => {
   if (!scraperReleaseManifest) {
     return res.status(404).type('text/plain').send('Scraper release manifest missing (terminal/scraper-release.json).')
   }
-  const local = resolveLocalScraperDownloadPath()
+  const local = resolveLocalScraperInstallerPath()
   if (!local) {
     return res
       .status(404)
       .type('text/plain')
       .send(
-        'Release bundle not on this server. Set SCRAPER_INSTALLER_URL or run scripts/sync-scraper-release.js and copy terminal/downloads/ to the host.'
+        'Installer not on this server. Set SCRAPER_INSTALLER_URL or place the .exe in terminal/downloads/.'
       )
   }
-  const contentType = local.downloadName.endsWith('.zip')
-    ? 'application/zip'
-    : 'application/octet-stream'
-  res.setHeader('Content-Type', contentType)
+  res.setHeader('Content-Type', 'application/octet-stream')
   res.setHeader('Content-Disposition', `attachment; filename="${local.downloadName}"`)
   fs.createReadStream(local.filePath).pipe(res)
-})
-
-app.get('/download/scraper-env', (req, res) => {
-  if (LOGIN_PASSWORD && !isAuthed(req)) {
-    return res.redirect('/')
-  }
-  if (!scraperReleaseManifest?.envFilename) {
-    return res.status(404).type('text/plain').send('Env template not configured.')
-  }
-  const envPath = path.join(SCRAPER_DOWNLOADS_DIR, scraperReleaseManifest.envFilename)
-  if (!fs.existsSync(envPath)) {
-    return res.status(404).type('text/plain').send('Env template file missing on server.')
-  }
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="${scraperReleaseManifest.envFilename}"`
-  )
-  fs.createReadStream(envPath).pipe(res)
 })
 
 app.get('/export/csv', (_req, res) => {
