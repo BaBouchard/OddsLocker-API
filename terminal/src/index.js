@@ -599,54 +599,7 @@ app.get('/', (req, res) => {
           background: var(--muted);
           opacity: 0.45;
         }
-        .lw-card-scroll {
-          position: relative;
-          max-height: 200px;
-        }
-        .lw-card-body {
-          padding: 0.35rem 0.45rem 0.5rem 0.5rem;
-          max-height: 200px;
-          overflow-y: auto;
-          overflow-x: hidden;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .lw-card-body::-webkit-scrollbar {
-          display: none;
-          width: 0;
-          height: 0;
-        }
-        .lw-scroll-rail {
-          position: absolute;
-          top: 6px;
-          right: 4px;
-          bottom: 6px;
-          width: 10px;
-          pointer-events: none;
-          z-index: 2;
-        }
-        .lw-scroll-rail.is-hidden {
-          opacity: 0;
-          visibility: hidden;
-        }
-        .lw-scroll-thumb {
-          position: absolute;
-          right: 2px;
-          width: 3px;
-          border-radius: 999px;
-          background: rgba(167, 139, 250, 0.28);
-          opacity: 0.5;
-          transition: width 0.22s ease, height 0.22s ease, background 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease;
-          box-shadow: none;
-        }
-        .lw-card-scroll.is-hover .lw-scroll-thumb,
-        .lw-card-scroll.is-scrolling .lw-scroll-thumb {
-          width: 6px;
-          right: 0;
-          opacity: 1;
-          background: rgba(196, 181, 253, 0.84);
-          box-shadow: 0 0 10px rgba(167, 139, 250, 0.32);
-        }
+        .lw-card-body { padding: 0.35rem 0.5rem 0.5rem; max-height: 200px; overflow-y: auto; }
         .lw-league-row {
           display: flex;
           align-items: center;
@@ -763,61 +716,6 @@ app.get('/', (req, res) => {
         const wsStatusEl = document.getElementById('wsStatus')
         const lwGrid = document.getElementById('leagueWatcherGrid')
         const lwUpdated = document.getElementById('lwUpdated')
-        const lwScrollTimers = new WeakMap()
-        function syncLwScrollbar(scrollWrap) {
-          const body = scrollWrap.querySelector('.lw-card-body')
-          const rail = scrollWrap.querySelector('.lw-scroll-rail')
-          const thumb = scrollWrap.querySelector('.lw-scroll-thumb')
-          if (!body || !rail || !thumb) return
-          const trackHeight = body.clientHeight
-          const scrollHeight = body.scrollHeight
-          if (scrollHeight <= trackHeight + 1) {
-            rail.classList.add('is-hidden')
-            return
-          }
-          rail.classList.remove('is-hidden')
-          const active = scrollWrap.classList.contains('is-hover') || scrollWrap.classList.contains('is-scrolling')
-          const ratio = trackHeight / scrollHeight
-          const baseHeight = Math.max(16, Math.round(trackHeight * ratio))
-          const thumbHeight = active ? Math.min(trackHeight - 4, Math.round(baseHeight * 1.45)) : baseHeight
-          const maxScroll = scrollHeight - trackHeight
-          const scrollRatio = maxScroll > 0 ? body.scrollTop / maxScroll : 0
-          const maxTop = Math.max(0, trackHeight - thumbHeight)
-          thumb.style.height = thumbHeight + 'px'
-          thumb.style.top = Math.round(scrollRatio * maxTop) + 'px'
-        }
-        function setupLwCardScrollbar(scrollWrap) {
-          const body = scrollWrap.querySelector('.lw-card-body')
-          if (!body || scrollWrap.dataset.lwScrollBound) return
-          scrollWrap.dataset.lwScrollBound = '1'
-          const sync = () => syncLwScrollbar(scrollWrap)
-          scrollWrap.addEventListener('mouseenter', () => {
-            scrollWrap.classList.add('is-hover')
-            sync()
-          })
-          scrollWrap.addEventListener('mouseleave', () => {
-            scrollWrap.classList.remove('is-hover')
-            sync()
-          })
-          body.addEventListener(
-            'scroll',
-            () => {
-              scrollWrap.classList.add('is-scrolling')
-              clearTimeout(lwScrollTimers.get(scrollWrap))
-              lwScrollTimers.set(
-                scrollWrap,
-                setTimeout(() => scrollWrap.classList.remove('is-scrolling'), 900)
-              )
-              sync()
-            },
-            { passive: true }
-          )
-          if (typeof ResizeObserver !== 'undefined') {
-            const ro = new ResizeObserver(sync)
-            ro.observe(body)
-          }
-          requestAnimationFrame(sync)
-        }
         ;(function setupIntroAnimation() {
           const slots = Array.from(document.querySelectorAll('.vps-slot'))
           const tableWrap = document.querySelector('.table-wrap')
@@ -1121,8 +1019,6 @@ app.get('/', (req, res) => {
             head.appendChild(sportDot)
             head.appendChild(sportName)
             card.appendChild(head)
-            const scrollWrap = document.createElement('div')
-            scrollWrap.className = 'lw-card-scroll'
             const body = document.createElement('div')
             body.className = 'lw-card-body'
             if (!sp.leagues || sp.leagues.length === 0) {
@@ -1144,16 +1040,7 @@ app.get('/', (req, res) => {
                 body.appendChild(row)
               })
             }
-            const rail = document.createElement('div')
-            rail.className = 'lw-scroll-rail is-hidden'
-            rail.setAttribute('aria-hidden', 'true')
-            const thumb = document.createElement('div')
-            thumb.className = 'lw-scroll-thumb'
-            rail.appendChild(thumb)
-            scrollWrap.appendChild(body)
-            scrollWrap.appendChild(rail)
-            card.appendChild(scrollWrap)
-            setupLwCardScrollbar(scrollWrap)
+            card.appendChild(body)
             lwGrid.appendChild(card)
           })
         }
