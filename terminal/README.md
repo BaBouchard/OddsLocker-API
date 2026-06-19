@@ -65,7 +65,7 @@ While this flag is on, **empty** `data: []` ingests are **ignored** (no clear, n
 The terminal dashboard can show **Download OddsLocker Scraper vX** when an installer is configured.
 
 1. **`terminal/scraper-release.json`** — version + installer filename (sync with `node scripts/sync-scraper-release.js` after bumping `desktop/package.json`).
-2. **Host the installer** on GitHub Releases (tag `scraper-v<version>`, asset `OddsLocker-Scraper-Setup-<version>.exe`). After deploy, the terminal **builds the download URL automatically** from **`terminal/scraper-release.json`** — you do not need to update Railway each release. Optional override: **`SCRAPER_INSTALLER_URL`** or **`SCRAPER_INSTALLER_GITHUB_REPO`**.
+2. **Host the installer** on GitHub Releases (tag `scraper-v<version>`, asset `OddsLocker-Scraper-Setup-<version>.exe`). After deploy, the terminal **builds the download URL automatically** from **`terminal/scraper-release.json`** (`githubRepo` + version + filename) — you do not need to update Railway each release. **`SCRAPER_INSTALLER_URL`** is only used when `githubRepo` is missing from the manifest (custom host). Optional: **`SCRAPER_INSTALLER_GITHUB_REPO`** overrides the repo in the manifest.
 
 Books **`.env` is bundled inside the desktop installer** — users do not download a separate env file. **`/health`** includes `scraperDownload.version`, `filename`, and `available`.
 

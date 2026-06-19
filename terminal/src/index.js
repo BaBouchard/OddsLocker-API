@@ -60,12 +60,13 @@ function loadScraperReleaseManifest() {
 const scraperReleaseManifest = loadScraperReleaseManifest()
 
 function resolveRemoteScraperInstallerUrl(manifest = scraperReleaseManifest) {
-  if (!manifest) return ''
-  if (SCRAPER_INSTALLER_URL) return SCRAPER_INSTALLER_URL
+  if (!manifest) return SCRAPER_INSTALLER_URL || ''
   const repo = SCRAPER_INSTALLER_GITHUB_REPO || manifest.githubRepo || ''
-  if (!repo) return ''
-  const tag = `${manifest.githubReleaseTagPrefix || 'scraper-v'}${manifest.version}`
-  return `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(manifest.filename)}`
+  if (repo) {
+    const tag = `${manifest.githubReleaseTagPrefix || 'scraper-v'}${manifest.version}`
+    return `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(manifest.filename)}`
+  }
+  return SCRAPER_INSTALLER_URL || ''
 }
 
 function resolveLocalScraperInstallerPath() {
@@ -85,7 +86,7 @@ function getScraperDownloadInfo() {
       available: true,
       href: remoteUrl,
       external: true,
-      autoUrl: !SCRAPER_INSTALLER_URL
+      autoUrl: !!(SCRAPER_INSTALLER_GITHUB_REPO || scraperReleaseManifest.githubRepo),
     }
   }
   const local = resolveLocalScraperInstallerPath()
