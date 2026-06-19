@@ -599,7 +599,46 @@ app.get('/', (req, res) => {
           background: var(--muted);
           opacity: 0.45;
         }
-        .lw-card-body { padding: 0.35rem 0.5rem 0.5rem; max-height: 200px; overflow-y: auto; }
+        .lw-card-body {
+          padding: 0.35rem 0.45rem 0.5rem 0.5rem;
+          max-height: 200px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(167, 139, 250, 0.2) transparent;
+        }
+        .lw-card-body:hover,
+        .lw-card-body.is-scrolling {
+          scrollbar-color: rgba(167, 139, 250, 0.55) transparent;
+        }
+        .lw-card-body::-webkit-scrollbar {
+          width: 3px;
+          height: 3px;
+          background: transparent;
+        }
+        .lw-card-body:hover::-webkit-scrollbar,
+        .lw-card-body.is-scrolling::-webkit-scrollbar {
+          width: 5px;
+        }
+        .lw-card-body::-webkit-scrollbar-track {
+          background: transparent;
+          border: none;
+          box-shadow: none;
+          margin: 6px 0;
+        }
+        .lw-card-body::-webkit-scrollbar-thumb {
+          background: rgba(167, 139, 250, 0.22);
+          border: none;
+          border-radius: 999px;
+          min-height: 28px;
+          box-shadow: none;
+          transition: background 0.22s ease, width 0.22s ease, box-shadow 0.22s ease;
+        }
+        .lw-card-body:hover::-webkit-scrollbar-thumb,
+        .lw-card-body.is-scrolling::-webkit-scrollbar-thumb {
+          background: rgba(196, 181, 253, 0.72);
+          box-shadow: 0 0 10px rgba(167, 139, 250, 0.28);
+        }
         .lw-league-row {
           display: flex;
           align-items: center;
@@ -716,6 +755,24 @@ app.get('/', (req, res) => {
         const wsStatusEl = document.getElementById('wsStatus')
         const lwGrid = document.getElementById('leagueWatcherGrid')
         const lwUpdated = document.getElementById('lwUpdated')
+        if (lwGrid && !lwGrid.dataset.lwScrollUiBound) {
+          lwGrid.dataset.lwScrollUiBound = '1'
+          const lwScrollTimers = new WeakMap()
+          lwGrid.addEventListener(
+            'scroll',
+            (e) => {
+              const el = e.target
+              if (!el.classList || !el.classList.contains('lw-card-body')) return
+              el.classList.add('is-scrolling')
+              clearTimeout(lwScrollTimers.get(el))
+              lwScrollTimers.set(
+                el,
+                setTimeout(() => el.classList.remove('is-scrolling'), 900)
+              )
+            },
+            true
+          )
+        }
         ;(function setupIntroAnimation() {
           const slots = Array.from(document.querySelectorAll('.vps-slot'))
           const tableWrap = document.querySelector('.table-wrap')
