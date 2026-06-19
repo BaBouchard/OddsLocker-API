@@ -612,39 +612,53 @@ app.get('/', (req, res) => {
           scrollbar-color: rgba(167, 139, 250, 0.55) transparent;
         }
         .lw-card-body::-webkit-scrollbar {
+          -webkit-appearance: none;
+          appearance: none;
           width: 3px;
-          height: 3px;
           background: transparent;
         }
         .lw-card-body:hover::-webkit-scrollbar,
         .lw-card-body.is-scrolling::-webkit-scrollbar {
-          width: 5px;
+          width: 7px;
         }
         .lw-card-body::-webkit-scrollbar-track {
           background: transparent;
           border: none;
           box-shadow: none;
-          margin: 6px 0;
+          margin: 0;
         }
         .lw-card-body::-webkit-scrollbar-thumb {
           background: rgba(167, 139, 250, 0.22);
-          border: none;
+          border: 4px solid transparent;
+          background-clip: padding-box;
           border-radius: 999px;
-          min-height: 28px;
+          min-height: 18px;
           box-shadow: none;
-          transition: background 0.22s ease, width 0.22s ease, box-shadow 0.22s ease;
+          transition: background 0.22s ease, border-width 0.22s ease, min-height 0.22s ease, box-shadow 0.22s ease;
         }
         .lw-card-body:hover::-webkit-scrollbar-thumb,
         .lw-card-body.is-scrolling::-webkit-scrollbar-thumb {
-          background: rgba(196, 181, 253, 0.72);
+          background: rgba(196, 181, 253, 0.78);
+          border-width: 1px;
+          min-height: 42px;
           box-shadow: 0 0 10px rgba(167, 139, 250, 0.28);
         }
         .lw-card-body::-webkit-scrollbar-button,
+        .lw-card-body::-webkit-scrollbar-button:single-button,
+        .lw-card-body::-webkit-scrollbar-button:double-button,
+        .lw-card-body::-webkit-scrollbar-button:horizontal,
+        .lw-card-body::-webkit-scrollbar-button:vertical,
+        .lw-card-body::-webkit-scrollbar-button:start:decrement,
+        .lw-card-body::-webkit-scrollbar-button:end:increment,
+        .lw-card-body::-webkit-scrollbar-button:vertical:start:decrement,
+        .lw-card-body::-webkit-scrollbar-button:vertical:end:increment,
         .lw-card-body::-webkit-scrollbar-corner {
-          display: none;
-          width: 0;
-          height: 0;
-          background: transparent;
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+          background: transparent !important;
+          -webkit-appearance: none;
+          appearance: none;
         }
         .lw-league-row {
           display: flex;
