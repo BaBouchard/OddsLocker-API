@@ -57,15 +57,20 @@ function upsertEnvKey(content, key, value) {
   return kept.join('\n')
 }
 
+// Always enable public/no-auth books in the installer bundle (even when source is repo .env).
+body = upsertEnvKey(body, 'POLYMARKET_ENABLED', '1')
+body = upsertEnvKey(body, 'POLYMARKET_NAME', 'Polymarket')
+body = upsertEnvKey(body, 'POLYMARKET_BOOKMAKER_BASE_URL', 'https://polymarket.com')
+body = upsertEnvKey(body, 'KALSHI_ENABLED', '1')
+body = upsertEnvKey(body, 'KALSHI_NAME', 'Kalshi')
+body = upsertEnvKey(body, 'KALSHI_BOOKMAKER_BASE_URL', 'https://kalshi.com')
+body = upsertEnvKey(body, 'POINTSBET_BASKETBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/basketball')
+body = upsertEnvKey(body, 'POINTSBET_BASEBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/baseball')
+body = upsertEnvKey(body, 'POINTSBET_SOCCER_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/soccer')
+body = upsertEnvKey(body, 'POINTSBET_FOOTBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/football')
+body = upsertEnvKey(body, 'POINTSBET_TENNIS_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/tennis')
+body = upsertEnvKey(body, 'POINTSBET_NAME', 'PointsBet')
 if (source === '.env.example' || source === '.env.example (public template)') {
-  body = upsertEnvKey(body, 'POLYMARKET_ENABLED', '1')
-  body = upsertEnvKey(body, 'KALSHI_ENABLED', '1')
-  body = upsertEnvKey(body, 'POINTSBET_BASKETBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/basketball')
-  body = upsertEnvKey(body, 'POINTSBET_BASEBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/baseball')
-  body = upsertEnvKey(body, 'POINTSBET_SOCCER_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/soccer')
-  body = upsertEnvKey(body, 'POINTSBET_FOOTBALL_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/football')
-  body = upsertEnvKey(body, 'POINTSBET_TENNIS_URL', 'https://api.on.pointsbet.com/api/v2/events/inplay/tennis')
-  body = upsertEnvKey(body, 'POINTSBET_NAME', 'PointsBet')
   body = upsertEnvKey(
     body,
     'TERMINAL_URL',

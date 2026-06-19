@@ -1,4 +1,11 @@
-import 'dotenv/config'
+import dotenv from 'dotenv'
+import path from 'node:path'
+// Desktop spawns scraper.exe with cwd=userData; override inherited Electron env so user .env wins.
+if (process.env.OL_RUN_FROM_DESKTOP === '1') {
+  dotenv.config({ path: path.join(process.cwd(), '.env'), override: true })
+} else {
+  dotenv.config()
+}
 import { createBroadcastServer } from './broadcast.js'
 import { pushToApi, pushToTerminal, normalizeTerminalBaseUrl } from './push.js'
 import { WebSocketAdapter } from './adapters/websocket.js'

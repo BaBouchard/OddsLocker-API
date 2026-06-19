@@ -1,6 +1,6 @@
 {
   "name": "oddslocker-scraper-desktop",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "OddsLocker scraper desktop: local WebSocket dashboard + optional browser terminal (Windows installer)",
   "main": "main.cjs",
   "author": "OddsLocker",

@@ -92,19 +92,45 @@ function seedUserEnvFromBundleIfMissing() {
   return true
 }
 
-/** Re-apply bundled books config when the desktop app version changes (keeps wizard SOURCE_ID / terminal URL). */
+/** Bundled keys that must exist in user .env when present in the installer bundle. */
+const BUNDLED_BOOK_ENV_KEYS = [
+  'POLYMARKET_ENABLED',
+  'KALSHI_ENABLED',
+  'THESCORE_POLL_URL',
+  'POINTSBET_BASKETBALL_URL'
+]
+
+function userEnvMissingBundledBooks(userContent, bundledContent) {
+  if (!bundledContent) return false
+  for (const key of BUNDLED_BOOK_ENV_KEYS) {
+    const bundledVal = readEnvKeyFromContent(bundledContent, key, '')
+    if (!bundledVal) continue
+    const userVal = readEnvKeyFromContent(userContent || '', key, '')
+    if (!userVal) return true
+  }
+  return false
+}
+
+function shouldApplyBundledEnv(cfg, existing, bundled, appVer) {
+  if (!bundled) return false
+  if (cfg.bundledEnvVersion !== appVer) return true
+  return userEnvMissingBundledBooks(existing, bundled)
+}
+
+/** Re-apply bundled books config when the app version changes or user .env is missing bundled books. */
 function applyBundledEnvOnAppUpgrade() {
   const bundled = readBundledEnvContent()
   if (!bundled) return false
   const cfg = loadConfig()
   const appVer = app.getVersion()
-  if (cfg.bundledEnvVersion === appVer) return false
 
   const userEnvPath = userDataPath('.env')
   let existing = ''
   try {
     existing = fs.readFileSync(userEnvPath, 'utf8')
   } catch (_) {}
+
+  if (!shouldApplyBundledEnv(cfg, existing, bundled, appVer)) return false
 
   const sourceId = cfg.sourceId || readEnvKeyFromContent(existing, 'SOURCE_ID', 'vps2')
   const terminalUrl = normalizeTerminalUrl(
@@ -122,7 +148,9 @@ function applyBundledEnvOnAppUpgrade() {
   fs.mkdirSync(app.getPath('userData'), { recursive: true })
   fs.writeFileSync(userEnvPath, merged, 'utf8')
   saveConfig({ ...cfg, bundledEnvVersion: appVer })
-  console.log('[OddsLocker Desktop] Applied bundled books .env for app version', appVer)
+  const reason =
+    cfg.bundledEnvVersion !== appVer ? `app version ${appVer}` : 'missing bundled sportsbooks'
+  console.log('[OddsLocker Desktop] Applied bundled books .env for', reason)
   return true
 }
 
@@ -183,7 +211,7 @@ function startScraper() {
   const cwd = app.getPath('userData')
   scraperProcess = spawn(exe, [], {
     cwd,
-    env: { ...process.env },
+    env: { ...process.env, OL_RUN_FROM_DESKTOP: '1' },
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe']
   })
@@ -461,10 +489,15 @@ ipcMain.handle('setup:save', async (_evt, payload) => {
 
   let baseEnv = (envText || '').trim()
   if (!baseEnv) {
+    const bundled = readBundledEnvContent()
     try {
-      baseEnv = fs.readFileSync(userDataPath('.env'), 'utf8')
+      const existing = fs.readFileSync(userDataPath('.env'), 'utf8')
+      if (bundled && userEnvMissingBundledBooks(existing, bundled)) {
+        baseEnv = bundled
+      } else {
+        baseEnv = existing
+      }
     } catch {
-      const bundled = readBundledEnvContent()
       if (bundled) baseEnv = bundled
       else {
         return {
@@ -491,7 +524,8 @@ ipcMain.handle('setup:save', async (_evt, payload) => {
     sourceId,
     terminalUrl: url,
     terminalIngestSecret: (ingestSecret || '').trim() || undefined,
-    pushingEnabled: true
+    pushingEnabled: true,
+    bundledEnvVersion: app.getVersion()
   })
 
   startScraper()
