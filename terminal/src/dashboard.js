@@ -117,8 +117,8 @@ function buildVpsControlDeckHtml() {
           <span class="deck-title">Fleet Control Station</span>
           <span class="deck-meta" id="deckMeta">rev — · sync —</span>
         </div>
+        <div class="deck-command-row">
         ${buildCarRadioHtml()}
-        <div class="deck-master">
           <div class="deck-master-panel">
             <div class="deck-fader deck-remote-only">
               <label>Poll interval</label>
@@ -577,21 +577,25 @@ function dashboardStyles() {
           font-size: 0.62rem;
           color: var(--muted);
         }
-        .deck-master {
+        .deck-command-row {
           display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 1rem;
-          margin-bottom: 1rem;
+          grid-template-columns: minmax(17rem, auto) minmax(0, 1fr) auto;
+          gap: 0.65rem;
+          align-items: stretch;
+          margin-bottom: 0.85rem;
         }
-        @media (max-width: 900px) { .deck-master { grid-template-columns: 1fr; } }
+        @media (max-width: 1100px) {
+          .deck-command-row { grid-template-columns: 1fr; }
+        }
         .deck-master-panel {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-          gap: 0.75rem;
-          padding: 0.85rem;
+          grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+          gap: 0.65rem;
+          padding: 0.75rem 0.85rem;
           border-radius: 10px;
           background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.2));
           border: 1px solid rgba(255,255,255,0.05);
+          min-width: 0;
         }
         .deck-fader {
           display: flex;
@@ -713,13 +717,15 @@ function dashboardStyles() {
         }
         .deck-btn.accent:hover { box-shadow: 0 0 14px rgba(167,139,250,0.2); }
         .deck-summary {
-          min-width: 10rem;
-          padding: 0.85rem;
+          min-width: 9.5rem;
+          flex-shrink: 0;
+          padding: 0.75rem 0.85rem;
           border-radius: 10px;
           border: 1px solid rgba(255,255,255,0.05);
           background: rgba(0,0,0,0.25);
           font-size: 0.68rem;
           color: var(--muted);
+          align-self: stretch;
         }
         .deck-summary strong { color: var(--text); font-weight: 500; }
         .deck-summary .deck-stat { margin-bottom: 0.35rem; }
@@ -838,18 +844,22 @@ function dashboardStyles() {
           z-index: 2;
         }
         .car-radio {
-          margin-bottom: 1rem;
+          margin-bottom: 0;
+          min-width: 0;
         }
         .car-radio-bezel {
-          border-radius: 12px;
-          padding: 0.85rem 1rem 0.95rem;
+          border-radius: 10px;
+          padding: 0.65rem 0.75rem 0.7rem;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
           background:
             linear-gradient(180deg, #3d3d45 0%, #25252c 18%, #1a1a20 55%, #121218 100%);
           border: 1px solid #4a4a54;
           box-shadow:
             inset 0 2px 4px rgba(255,255,255,0.12),
             inset 0 -3px 8px rgba(0,0,0,0.55),
-            0 8px 24px rgba(0,0,0,0.35);
+            0 6px 18px rgba(0,0,0,0.3);
           position: relative;
         }
         .car-radio-bezel::before {
@@ -884,10 +894,10 @@ function dashboardStyles() {
         }
         .car-radio-screens {
           display: flex;
-          flex-wrap: wrap;
-          gap: 0.85rem 1.25rem;
+          flex-wrap: nowrap;
+          gap: 0.55rem 0.75rem;
           align-items: flex-end;
-          margin-bottom: 0.75rem;
+          margin-bottom: 0.55rem;
         }
         .radio-screen-block { min-width: 0; }
         .radio-screen-label {
@@ -962,22 +972,25 @@ function dashboardStyles() {
         .seg-digit.seg-dash .seg-g.on { opacity: 1; }
         .car-radio-orchestration {
           display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 0.65rem 1rem;
-          padding-top: 0.55rem;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.35rem;
+          padding-top: 0.45rem;
+          margin-top: auto;
           border-top: 1px solid rgba(255,255,255,0.06);
         }
         .orchestration-switch .orchestration-label {
-          font-size: 0.72rem;
+          font-size: 0.68rem;
           font-weight: 500;
           color: #d4d4d8;
           letter-spacing: 0.02em;
         }
         .orchestration-hint {
-          font-size: 0.65rem;
+          font-size: 0.58rem;
           color: #71717a;
           font-style: italic;
+          line-height: 1.3;
+          max-width: 16rem;
         }
         .control-deck.manual-mode .deck-remote-only {
           opacity: 0.38;
