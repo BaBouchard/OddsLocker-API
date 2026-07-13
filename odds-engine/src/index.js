@@ -14,8 +14,14 @@ import { renderPage, renderLoginHtml } from './dashboard/pages.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const engineRoot = path.join(__dirname, '..')
+const userData = process.env.OL_ENGINE_USER_DATA
+  ? path.resolve(process.env.OL_ENGINE_USER_DATA)
+  : ''
 
-// Prefer odds-engine/.env, fall back to repo root .env for book URLs
+// Prefer userData .env (desktop), then odds-engine/.env, then repo root .env for book URLs
+if (userData) {
+  dotenv.config({ path: path.join(userData, '.env'), override: true })
+}
 dotenv.config({ path: path.join(engineRoot, '.env') })
 dotenv.config({ path: path.join(engineRoot, '../.env') })
 

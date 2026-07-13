@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url'
 import { createDefaultState } from './defaults.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = path.join(__dirname, '../../data')
+const DATA_DIR = process.env.OL_ENGINE_DATA_DIR
+  ? path.resolve(process.env.OL_ENGINE_DATA_DIR)
+  : path.join(__dirname, '../../data')
 const STATE_PATH = path.join(DATA_DIR, 'state.json')
 
 let state = null

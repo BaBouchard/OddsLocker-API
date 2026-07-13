@@ -6,7 +6,9 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const rootSrc = path.resolve(__dirname, '../../../src')
+const rootSrc = process.env.SCRAPER_SRC_ROOT
+  ? path.resolve(process.env.SCRAPER_SRC_ROOT)
+  : path.resolve(__dirname, '../../../src')
 
 async function load(mod) {
   return import(pathToFileURL(path.join(rootSrc, mod)).href)

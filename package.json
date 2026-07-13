@@ -9,6 +9,8 @@
     "dev": "node --watch src/index.js",
     "engine": "npm --prefix odds-engine start",
     "engine:dev": "npm --prefix odds-engine run dev",
+    "desktop:v2": "npm --prefix desktop-v2 start",
+    "dist:v2": "npm --prefix desktop-v2 run dist",
     "build:bundle": "esbuild src/index.js --bundle --platform=node --target=node18 --format=cjs --outfile=dist/scraper-bundle.cjs",
     "build:win": "npm run build:bundle && pkg dist/scraper-bundle.cjs --targets node18-win-x64 --output dist/live-odds-scraper.exe"
   },

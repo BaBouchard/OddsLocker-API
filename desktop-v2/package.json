@@ -1,0 +1,76 @@
+{
+  "name": "oddslocker-scraper-desktop",
+  "version": "2.0.0",
+  "description": "OddsLocker Scraper v2 — channel engine desktop (Windows)",
+  "main": "main.cjs",
+  "author": "OddsLocker",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "predist": "node ../scripts/prepare-desktop-v2.js",
+    "dist": "electron-builder --win",
+    "dist:dir": "electron-builder --win --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.oddslocker.scraper",
+    "productName": "OddsLocker Scraper",
+    "copyright": "Copyright OddsLocker",
+    "directories": {
+      "output": "release"
+    },
+    "icon": "assets/icon.ico",
+    "files": [
+      "main.cjs",
+      "assets/icon.png",
+      "assets/icon.ico"
+    ],
+    "extraResources": [
+      {
+        "from": "../odds-engine",
+        "to": "odds-engine",
+        "filter": [
+          "**/*",
+          "!data/state.json",
+          "!.env",
+          "!**/*.log"
+        ]
+      },
+      {
+        "from": "vendor/scraper-src",
+        "to": "scraper-src"
+      },
+      {
+        "from": "bundled/default.env",
+        "to": "default.env"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "OddsLocker-Scraper-Setup-${version}.${ext}",
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OddsLocker Scraper",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
+    }
+  }
+}
