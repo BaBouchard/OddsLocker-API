@@ -1146,6 +1146,73 @@ function vpsControlDeckScript() {
             el.appendChild(digit)
           }
         }
+        function defaultClientControlState() {
+          const slots = {}
+          for (const slot of ${JSON.stringify(VPS_SLOTS)}) {
+            slots[slot] = {
+              enabled: true,
+              pushEnabled: true,
+              pollIntervalSec: null,
+              autoPoll: null,
+              maintenanceNote: ''
+            }
+          }
+          return {
+            rev: 0,
+            updatedAt: Date.now(),
+            global: {
+              fleetEnabled: true,
+              remoteOrchestration: false,
+              scheduleEpoch: Date.now(),
+              defaultPollIntervalSec: 2,
+              vpsStaggerSec: 0.5,
+              autoPoll: false,
+              leagueWatcherPush: true,
+              replaceAllOnIngest: false,
+              configPollSec: 5
+            },
+            slots
+          }
+        }
+        function ensureControlState() {
+          if (!controlState) controlState = defaultClientControlState()
+          return controlState
+        }
+        function getEffectiveGlobal() {
+          ensureControlState()
+          const g = { ...controlState.global }
+          const fleet = document.getElementById('deckFleetEnabled')
+          const poll = document.getElementById('deckDefaultPoll')
+          const stagger = document.getElementById('deckStagger')
+          const remoteOrch = document.getElementById('deckRemoteOrchestration')
+          const autoPoll = document.getElementById('deckAutoPoll')
+          if (fleet) g.fleetEnabled = fleet.checked
+          if (poll) g.defaultPollIntervalSec = Number(poll.value) || g.defaultPollIntervalSec
+          if (stagger) g.vpsStaggerSec = Number(stagger.value)
+          if (Number.isNaN(g.vpsStaggerSec)) g.vpsStaggerSec = 0.5
+          if (remoteOrch) g.remoteOrchestration = remoteOrch.checked
+          if (autoPoll) g.autoPoll = autoPoll.checked
+          if (!g.scheduleEpoch || !Number.isFinite(Number(g.scheduleEpoch))) {
+            g.scheduleEpoch = Date.now()
+          }
+          return g
+        }
+        function getEffectiveSlot(slot) {
+          ensureControlState()
+          const base = controlState.slots?.[slot] || { enabled: true, pushEnabled: true }
+          const en = document.querySelector('[data-ch-enabled="' + slot + '"]')
+          const push = document.querySelector('[data-ch-push="' + slot + '"]')
+          return {
+            enabled: en ? en.checked : !!base.enabled,
+            pushEnabled: push ? push.checked : !!base.pushEnabled
+          }
+        }
+        function bumpScheduleEpoch() {
+          const epoch = Date.now()
+          ensureControlState()
+          controlState.global.scheduleEpoch = epoch
+          return epoch
+        }
         function formatCountdownSeg(ms) {
           if (ms == null || !Number.isFinite(ms)) return '----'
           const totalSec = Math.max(0, Math.ceil(ms / 1000))
@@ -1167,54 +1234,39 @@ function vpsControlDeckScript() {
           if (!Number.isFinite(n) || n < 1) return '--'
           return String(n).padStart(2, '0')
         }
-        function computeManualSchedule(sources) {
-          if (!controlState || !sources) return { nextSlot: null, nextInMs: null }
-          const intervalMs = (controlState.global?.defaultPollIntervalSec || 2) * 1000
+        function computeFleetSchedule(now) {
+          const g = getEffectiveGlobal()
+          if (!g.fleetEnabled) return { nextSlot: null, nextInMs: null }
+          const pollMs = Math.max(500, (g.defaultPollIntervalSec || 2) * 1000)
+          const staggerMs = Math.max(0, (g.vpsStaggerSec || 0) * 1000)
+          const epoch = Number(g.scheduleEpoch) || now
           let bestAt = Infinity
           let bestSlot = null
           for (const slot of ${JSON.stringify(VPS_SLOTS)}) {
-            const st = sources[slot]
-            const lastSeen = st?.lastSeen ?? 0
-            if (!lastSeen) continue
-            const nextAt = lastSeen + intervalMs
-            if (nextAt < bestAt) { bestAt = nextAt; bestSlot = slot }
-          }
-          if (!bestSlot) return { nextSlot: null, nextInMs: null }
-          return { nextSlot: bestSlot, nextInMs: Math.max(0, bestAt - Date.now()) }
-        }
-        function isRemoteOrchestrationActive() {
-          const el = document.getElementById('deckRemoteOrchestration')
-          if (el) return el.checked
-          return !!controlState?.global?.remoteOrchestration
-        }
-        function computeOrchestrationScheduleClient() {
-          if (!controlState) return { nextSlot: null, nextInMs: null }
-          const g = controlState.global || {}
-          if (!isRemoteOrchestrationActive() || !g.fleetEnabled) {
-            return { nextSlot: null, nextInMs: null }
-          }
-          const now = Date.now()
-          const pollMs = (g.defaultPollIntervalSec || 2) * 1000
-          const staggerMs = (g.vpsStaggerSec || 0) * 1000
-          const epoch = g.scheduleEpoch || now
-          let bestAt = Infinity
-          let bestSlot = null
-          for (const slot of ${JSON.stringify(VPS_SLOTS)}) {
-            const st = controlState.slots?.[slot]
-            if (!st?.enabled || !st?.pushEnabled) continue
+            const st = getEffectiveSlot(slot)
+            if (!st.enabled || !st.pushEnabled) continue
             const n = Number(slot.replace('vps', ''))
             const offset = Math.max(0, n - 1) * staggerMs
-            const elapsed = now - epoch - offset
-            const cycles = Math.floor(elapsed / pollMs)
-            let nextAt = epoch + offset + (cycles + 1) * pollMs
-            if (nextAt <= now) nextAt += pollMs
+            const firstAt = epoch + offset
+            let nextAt
+            if (now < firstAt) {
+              nextAt = firstAt
+            } else {
+              const elapsed = now - firstAt
+              const cycles = Math.floor(elapsed / pollMs)
+              nextAt = firstAt + (cycles + 1) * pollMs
+              if (nextAt <= now) nextAt += pollMs
+            }
             if (nextAt < bestAt) { bestAt = nextAt; bestSlot = slot }
           }
           return { nextSlot: bestSlot, nextInMs: bestSlot ? Math.max(0, bestAt - now) : null }
         }
+        function isRemoteOrchestrationActive() {
+          return !!getEffectiveGlobal().remoteOrchestration
+        }
         function updateCarRadioDisplay() {
-          const g = controlState?.global
-          const remote = isRemoteOrchestrationActive()
+          const g = getEffectiveGlobal()
+          const remote = !!g.remoteOrchestration
           const deck = document.getElementById('controlDeck')
           const lamp = document.getElementById('radioModeLamp')
           const hint = document.getElementById('orchestrationHint')
@@ -1225,34 +1277,24 @@ function vpsControlDeckScript() {
           if (lamp) lamp.classList.toggle('orch', remote)
           if (hint) {
             if (!remote) {
-              hint.textContent = 'Manual — scrapers poll on their own; feed still listens'
-            } else if (!g?.fleetEnabled) {
+              hint.textContent = 'Manual — scrapers self-poll; deck shows planned rotation timing'
+            } else if (!g.fleetEnabled) {
               hint.textContent = 'Orchestration — fleet halted'
-            } else if (!g?.autoPoll) {
-              hint.textContent = 'Orchestration — schedule preview (turn on auto poll to execute)'
+            } else if (!g.autoPoll) {
+              hint.textContent = 'Orchestration — schedule preview (scrapers not on remote poll yet)'
             } else {
               hint.textContent = 'Orchestration — deck schedules fleet polls'
             }
           }
           renderSegDisplay(modeSeg, remote ? 'ORCH' : 'MAN')
-          let nextSlot = null
-          let nextInMs = null
-          if (remote) {
-            if (!g?.fleetEnabled) {
-              renderSegDisplay(countdownSeg, 'HALT')
-              renderSegDisplay(vpsSeg, '--')
-              return
-            }
-            const sch = computeOrchestrationScheduleClient()
-            nextSlot = sch.nextSlot
-            nextInMs = sch.nextInMs
-          } else {
-            const sch = computeManualSchedule(vpsSourcesCache)
-            nextSlot = sch.nextSlot
-            nextInMs = sch.nextInMs
+          if (!g.fleetEnabled) {
+            renderSegDisplay(countdownSeg, 'HALT')
+            renderSegDisplay(vpsSeg, '--')
+            return
           }
-          renderSegDisplay(countdownSeg, formatCountdownSeg(nextInMs))
-          renderSegDisplay(vpsSeg, formatVpsSeg(nextSlot))
+          const sch = computeFleetSchedule(Date.now())
+          renderSegDisplay(countdownSeg, formatCountdownSeg(sch.nextInMs))
+          renderSegDisplay(vpsSeg, formatVpsSeg(sch.nextSlot))
         }
         function startRadioTick() {
           if (radioTickTimer) return
@@ -1385,39 +1427,52 @@ function vpsControlDeckScript() {
           const remoteOrch = document.getElementById('deckRemoteOrchestration')
           if (poll) poll.addEventListener('input', () => {
             if (pollVal) pollVal.textContent = fmtSec(poll.value)
+            const epoch = bumpScheduleEpoch()
             if (controlState?.global) controlState.global.defaultPollIntervalSec = Number(poll.value)
-            queueSave({ global: { defaultPollIntervalSec: Number(poll.value) } })
+            queueSave({ global: { defaultPollIntervalSec: Number(poll.value), scheduleEpoch: epoch } })
             updateCarRadioDisplay()
           })
           if (stagger) stagger.addEventListener('input', () => {
             if (staggerVal) staggerVal.textContent = fmtSec(stagger.value)
+            const epoch = bumpScheduleEpoch()
             if (controlState?.global) controlState.global.vpsStaggerSec = Number(stagger.value)
-            queueSave({ global: { vpsStaggerSec: Number(stagger.value) } })
+            queueSave({ global: { vpsStaggerSec: Number(stagger.value), scheduleEpoch: epoch } })
             updateCarRadioDisplay()
           })
           if (configPoll) configPoll.addEventListener('input', () => {
             if (configPollVal) configPollVal.textContent = fmtSec(configPoll.value)
             queueSave({ global: { configPollSec: Number(configPoll.value) } })
           })
-          if (fleet) fleet.addEventListener('change', () => queueSave({ global: { fleetEnabled: fleet.checked } }))
+          if (fleet) fleet.addEventListener('change', () => {
+            queueSave({ global: { fleetEnabled: fleet.checked } })
+            updateCarRadioDisplay()
+          })
           if (autoPoll) autoPoll.addEventListener('change', () => queueSave({ global: { autoPoll: autoPoll.checked } }))
           if (lw) lw.addEventListener('change', () => queueSave({ global: { leagueWatcherPush: lw.checked } }))
           if (replaceAll) replaceAll.addEventListener('change', () => queueSave({ global: { replaceAllOnIngest: replaceAll.checked } }))
           if (remoteOrch) remoteOrch.addEventListener('change', () => {
-            if (controlState?.global) controlState.global.remoteOrchestration = remoteOrch.checked
-            queueSave({ global: { remoteOrchestration: remoteOrch.checked } })
+            const epoch = remoteOrch.checked ? bumpScheduleEpoch() : undefined
+            if (controlState?.global) {
+              controlState.global.remoteOrchestration = remoteOrch.checked
+              if (epoch) controlState.global.scheduleEpoch = epoch
+            }
+            const patch = { global: { remoteOrchestration: remoteOrch.checked } }
+            if (epoch) patch.global.scheduleEpoch = epoch
+            queueSave(patch)
             updateCarRadioDisplay()
           })
           document.querySelectorAll('[data-ch-enabled]').forEach(inp => {
             inp.addEventListener('change', () => {
               const slot = inp.dataset.chEnabled
               queueSave({ slots: { [slot]: { enabled: inp.checked } } })
+              updateCarRadioDisplay()
             })
           })
           document.querySelectorAll('[data-ch-push]').forEach(inp => {
             inp.addEventListener('change', () => {
               const slot = inp.dataset.chPush
               queueSave({ slots: { [slot]: { pushEnabled: inp.checked } } })
+              updateCarRadioDisplay()
             })
           })
           document.querySelectorAll('[data-ch-note]').forEach(inp => {
@@ -1492,8 +1547,9 @@ function vpsControlDeckScript() {
           } catch (e) { console.warn('[Control] load error', e) }
         }
         bindControlInputs()
-        loadControlState()
+        ensureControlState()
         startRadioTick()
+        loadControlState()
   `
 }
 

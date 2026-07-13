@@ -91,6 +91,8 @@ export function updateVpsControlState(patch) {
   if (patch.global && typeof patch.global === 'object') {
     const g = patch.global
     const wasRemote = controlState.global.remoteOrchestration
+    const prevPoll = controlState.global.defaultPollIntervalSec
+    const prevStag = controlState.global.vpsStaggerSec
     controlState.global = {
       fleetEnabled: g.fleetEnabled !== undefined ? !!g.fleetEnabled : controlState.global.fleetEnabled,
       remoteOrchestration:
@@ -111,6 +113,14 @@ export function updateVpsControlState(patch) {
     }
     const nowRemote = controlState.global.remoteOrchestration
     if (nowRemote && !wasRemote) {
+      controlState.global.scheduleEpoch = Date.now()
+    }
+    if (
+      nowRemote &&
+      (g.defaultPollIntervalSec !== undefined || g.vpsStaggerSec !== undefined) &&
+      (controlState.global.defaultPollIntervalSec !== prevPoll ||
+        controlState.global.vpsStaggerSec !== prevStag)
+    ) {
       controlState.global.scheduleEpoch = Date.now()
     }
     if (g.scheduleEpoch !== undefined && Number.isFinite(Number(g.scheduleEpoch))) {
@@ -222,11 +232,16 @@ export function computeOrchestrationSchedule(now = Date.now()) {
     if (!slotCfg?.enabled || !slotCfg?.pushEnabled) continue
     const n = Number(slot.replace('vps', ''))
     const offset = Math.max(0, n - 1) * staggerMs
-    const elapsed = now - epoch - offset
-    const period = pollMs
-    const cycles = Math.floor(elapsed / period)
-    let nextAt = epoch + offset + (cycles + 1) * period
-    if (nextAt <= now) nextAt += period
+    const firstAt = epoch + offset
+    let nextAt
+    if (now < firstAt) {
+      nextAt = firstAt
+    } else {
+      const elapsed = now - firstAt
+      const cycles = Math.floor(elapsed / pollMs)
+      nextAt = firstAt + (cycles + 1) * pollMs
+      if (nextAt <= now) nextAt += pollMs
+    }
     if (nextAt < bestAt) {
       bestAt = nextAt
       bestSlot = slot
