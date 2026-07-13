@@ -80,19 +80,19 @@ function buildCarRadioHtml() {
               <div class="radio-screen-block">
                 <div class="radio-screen-label">NEXT IN</div>
                 <div class="radio-screen recess" id="radioCountdownScreen">
-                  <div class="seg-display" id="radioCountdownSeg" data-seg="----"></div>
+                  <div class="seg-display" id="radioCountdownSeg">02</div>
                 </div>
               </div>
               <div class="radio-screen-block">
                 <div class="radio-screen-label">NEXT VPS</div>
                 <div class="radio-screen recess" id="radioVpsScreen">
-                  <div class="seg-display" id="radioVpsSeg" data-seg="--"></div>
+                  <div class="seg-display" id="radioVpsSeg">01</div>
                 </div>
               </div>
               <div class="radio-screen-block radio-screen-mode">
                 <div class="radio-screen-label">MODE</div>
                 <div class="radio-screen recess small" id="radioModeScreen">
-                  <div class="seg-display seg-display-sm" id="radioModeSeg" data-seg="MAN"></div>
+                  <div class="seg-display seg-display-sm" id="radioModeSeg">MAN</div>
                 </div>
               </div>
             </div>
@@ -918,58 +918,27 @@ function dashboardStyles() {
         .radio-screen.recess.small { padding: 0.35rem 0.45rem; }
         .seg-display {
           display: flex;
-          gap: 0.22rem;
           align-items: center;
+          justify-content: flex-start;
+          gap: 0.12rem;
           min-height: 2.1rem;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 1.28rem;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          letter-spacing: 0.14em;
+          color: #fbbf24;
+          text-shadow:
+            0 0 10px rgba(251, 191, 36, 0.65),
+            0 0 2px rgba(255, 255, 255, 0.25);
+          line-height: 1;
         }
-        .seg-display-sm { min-height: 1.55rem; gap: 0.12rem; }
-        .seg-display-sm .seg-digit { width: 0.85rem; height: 1.35rem; }
-        .seg-display-sm .seg-digit .seg { border-radius: 1px; }
-        .seg-digit {
-          position: relative;
-          width: 1.15rem;
-          height: 1.85rem;
-          flex-shrink: 0;
+        .seg-display-sm {
+          min-height: 1.55rem;
+          font-size: 0.95rem;
+          letter-spacing: 0.1em;
         }
-        .seg-digit .seg {
-          position: absolute;
-          background: rgba(251,191,36,0.08);
-          border-radius: 2px;
-          transition: background 0.12s, box-shadow 0.12s;
-        }
-        .seg-digit .seg.on {
-          background: #fbbf24;
-          box-shadow: 0 0 8px rgba(251,191,36,0.55), 0 0 2px rgba(255,255,255,0.3);
-        }
-        .seg-digit .seg-a { top: 0; left: 12%; right: 12%; height: 11%; }
-        .seg-digit .seg-b { top: 6%; right: 0; width: 11%; height: 42%; }
-        .seg-digit .seg-c { bottom: 6%; right: 0; width: 11%; height: 42%; }
-        .seg-digit .seg-d { bottom: 0; left: 12%; right: 12%; height: 11%; }
-        .seg-digit .seg-e { bottom: 6%; left: 0; width: 11%; height: 42%; }
-        .seg-digit .seg-f { top: 6%; left: 0; width: 11%; height: 42%; }
-        .seg-digit .seg-g { top: 46%; left: 12%; right: 12%; height: 10%; }
-        .seg-digit.seg-colon {
-          width: 0.35rem;
-        }
-        .seg-digit.seg-colon::before,
-        .seg-digit.seg-colon::after {
-          content: '';
-          position: absolute;
-          left: 50%;
-          width: 5px;
-          height: 5px;
-          margin-left: -2.5px;
-          border-radius: 50%;
-          background: rgba(251,191,36,0.12);
-        }
-        .seg-digit.seg-colon.on::before,
-        .seg-digit.seg-colon.on::after {
-          background: #fbbf24;
-          box-shadow: 0 0 6px rgba(251,191,36,0.5);
-        }
-        .seg-digit.seg-colon::before { top: 28%; }
-        .seg-digit.seg-colon::after { bottom: 28%; }
-        .seg-digit.seg-dash .seg-g.on { opacity: 1; }
+        .seg-display.seg-dim { color: rgba(251, 191, 36, 0.35); text-shadow: none; }
         .car-radio-orchestration {
           display: flex;
           flex-direction: column;
@@ -1115,40 +1084,31 @@ function vpsControlDeckScript() {
         let pendingPatch = {}
         let vpsSourcesCache = null
         let radioTickTimer = null
-        const SEG_CHARS = {
-          '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
-          '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg',
-          '-': 'g', ' ': '', 'A': 'abcefg', 'E': 'adefg', 'F': 'aefg', 'H': 'bcefg',
-          'L': 'def', 'M': 'abcef', 'N': 'abcefg', 'O': 'abcdef', 'R': 'abcefg',
-          'S': 'acdfg', 'U': 'bcdef'
-        }
+        const PAGE_RADIO_EPOCH = Date.now()
+        const VPS_SLOT_LIST = ${JSON.stringify(VPS_SLOTS)}
         function fmtSec(v) { return Number(v).toFixed(Number(v) % 1 ? 1 : 0) + 's' }
-        function renderSegDisplay(el, text) {
+        function renderSegDisplay(el, text, dim) {
           if (!el) return
-          const raw = String(text || '').toUpperCase().slice(0, 8)
-          el.innerHTML = ''
-          for (let i = 0; i < raw.length; i++) {
-            const ch = raw[i]
-            if (ch === ':') {
-              const colon = document.createElement('div')
-              colon.className = 'seg-digit seg-colon on'
-              el.appendChild(colon)
-              continue
-            }
-            const digit = document.createElement('div')
-            digit.className = 'seg-digit' + (ch === '-' ? ' seg-dash' : '')
-            const segs = SEG_CHARS[ch] || ''
-            for (const s of 'abcdefg') {
-              const seg = document.createElement('i')
-              seg.className = 'seg ' + s + (segs.includes(s) ? ' on' : '')
-              digit.appendChild(seg)
-            }
-            el.appendChild(digit)
-          }
+          el.textContent = String(text == null ? '' : text).toUpperCase()
+          el.classList.toggle('seg-dim', !!dim)
+        }
+        function readPollIntervalSec() {
+          const poll = document.getElementById('deckDefaultPoll')
+          const n = poll ? Number(poll.value) : NaN
+          return Number.isFinite(n) && n > 0 ? n : (controlState?.global?.defaultPollIntervalSec ?? 2)
+        }
+        function readStaggerSec() {
+          const stagger = document.getElementById('deckStagger')
+          const n = stagger ? Number(stagger.value) : NaN
+          return Number.isFinite(n) && n >= 0 ? n : (controlState?.global?.vpsStaggerSec ?? 0.5)
+        }
+        function readScheduleEpoch() {
+          const epoch = Number(controlState?.global?.scheduleEpoch)
+          return Number.isFinite(epoch) && epoch > 0 ? epoch : PAGE_RADIO_EPOCH
         }
         function defaultClientControlState() {
           const slots = {}
-          for (const slot of ${JSON.stringify(VPS_SLOTS)}) {
+          for (const slot of VPS_SLOT_LIST) {
             slots[slot] = {
               enabled: true,
               pushEnabled: true,
@@ -1163,7 +1123,7 @@ function vpsControlDeckScript() {
             global: {
               fleetEnabled: true,
               remoteOrchestration: false,
-              scheduleEpoch: Date.now(),
+              scheduleEpoch: PAGE_RADIO_EPOCH,
               defaultPollIntervalSec: 2,
               vpsStaggerSec: 0.5,
               autoPoll: false,
@@ -1182,30 +1142,15 @@ function vpsControlDeckScript() {
           ensureControlState()
           const g = { ...controlState.global }
           const fleet = document.getElementById('deckFleetEnabled')
-          const poll = document.getElementById('deckDefaultPoll')
-          const stagger = document.getElementById('deckStagger')
           const remoteOrch = document.getElementById('deckRemoteOrchestration')
           const autoPoll = document.getElementById('deckAutoPoll')
           if (fleet) g.fleetEnabled = fleet.checked
-          if (poll) g.defaultPollIntervalSec = Number(poll.value) || g.defaultPollIntervalSec
-          if (stagger) g.vpsStaggerSec = Number(stagger.value)
-          if (Number.isNaN(g.vpsStaggerSec)) g.vpsStaggerSec = 0.5
           if (remoteOrch) g.remoteOrchestration = remoteOrch.checked
           if (autoPoll) g.autoPoll = autoPoll.checked
-          if (!g.scheduleEpoch || !Number.isFinite(Number(g.scheduleEpoch))) {
-            g.scheduleEpoch = Date.now()
-          }
+          g.defaultPollIntervalSec = readPollIntervalSec()
+          g.vpsStaggerSec = readStaggerSec()
+          g.scheduleEpoch = readScheduleEpoch()
           return g
-        }
-        function getEffectiveSlot(slot) {
-          ensureControlState()
-          const base = controlState.slots?.[slot] || { enabled: true, pushEnabled: true }
-          const en = document.querySelector('[data-ch-enabled="' + slot + '"]')
-          const push = document.querySelector('[data-ch-push="' + slot + '"]')
-          return {
-            enabled: en ? en.checked : !!base.enabled,
-            pushEnabled: push ? push.checked : !!base.pushEnabled
-          }
         }
         function bumpScheduleEpoch() {
           const epoch = Date.now()
@@ -1235,19 +1180,14 @@ function vpsControlDeckScript() {
           return String(n).padStart(2, '0')
         }
         function computeFleetSchedule(now) {
-          const g = getEffectiveGlobal()
-          if (!g.fleetEnabled) return { nextSlot: null, nextInMs: null }
-          const pollMs = Math.max(500, (g.defaultPollIntervalSec || 2) * 1000)
-          const staggerMs = Math.max(0, (g.vpsStaggerSec || 0) * 1000)
-          const epoch = Number(g.scheduleEpoch) || now
+          const pollMs = Math.max(500, readPollIntervalSec() * 1000)
+          const staggerMs = Math.max(0, readStaggerSec() * 1000)
+          const epoch = readScheduleEpoch()
           let bestAt = Infinity
           let bestSlot = null
-          for (const slot of ${JSON.stringify(VPS_SLOTS)}) {
-            const st = getEffectiveSlot(slot)
-            if (!st.enabled || !st.pushEnabled) continue
-            const n = Number(slot.replace('vps', ''))
-            const offset = Math.max(0, n - 1) * staggerMs
-            const firstAt = epoch + offset
+          for (const slot of VPS_SLOT_LIST) {
+            const n = Number(String(slot).replace('vps', ''))
+            const firstAt = epoch + Math.max(0, n - 1) * staggerMs
             let nextAt
             if (now < firstAt) {
               nextAt = firstAt
@@ -1262,11 +1202,13 @@ function vpsControlDeckScript() {
           return { nextSlot: bestSlot, nextInMs: bestSlot ? Math.max(0, bestAt - now) : null }
         }
         function isRemoteOrchestrationActive() {
-          return !!getEffectiveGlobal().remoteOrchestration
+          const el = document.getElementById('deckRemoteOrchestration')
+          if (el) return el.checked
+          return !!controlState?.global?.remoteOrchestration
         }
         function updateCarRadioDisplay() {
           const g = getEffectiveGlobal()
-          const remote = !!g.remoteOrchestration
+          const remote = isRemoteOrchestrationActive()
           const deck = document.getElementById('controlDeck')
           const lamp = document.getElementById('radioModeLamp')
           const hint = document.getElementById('orchestrationHint')
@@ -1279,7 +1221,7 @@ function vpsControlDeckScript() {
             if (!remote) {
               hint.textContent = 'Manual — scrapers self-poll; deck shows planned rotation timing'
             } else if (!g.fleetEnabled) {
-              hint.textContent = 'Orchestration — fleet halted'
+              hint.textContent = 'Orchestration — fleet halted (schedule preview still runs)'
             } else if (!g.autoPoll) {
               hint.textContent = 'Orchestration — schedule preview (scrapers not on remote poll yet)'
             } else {
@@ -1287,11 +1229,6 @@ function vpsControlDeckScript() {
             }
           }
           renderSegDisplay(modeSeg, remote ? 'ORCH' : 'MAN')
-          if (!g.fleetEnabled) {
-            renderSegDisplay(countdownSeg, 'HALT')
-            renderSegDisplay(vpsSeg, '--')
-            return
-          }
           const sch = computeFleetSchedule(Date.now())
           renderSegDisplay(countdownSeg, formatCountdownSeg(sch.nextInMs))
           renderSegDisplay(vpsSeg, formatVpsSeg(sch.nextSlot))
@@ -1299,9 +1236,10 @@ function vpsControlDeckScript() {
         function startRadioTick() {
           if (radioTickTimer) return
           function tick() {
-            updateCarRadioDisplay()
-            radioTickTimer = setTimeout(tick, 250)
+            try { updateCarRadioDisplay() } catch (e) { console.warn('[Control] radio tick', e) }
+            radioTickTimer = setTimeout(tick, 200)
           }
+          updateCarRadioDisplay()
           tick()
         }
         function mergePatch(base, patch) {
@@ -1546,9 +1484,9 @@ function vpsControlDeckScript() {
             applyControlState(await res.json(), true)
           } catch (e) { console.warn('[Control] load error', e) }
         }
-        bindControlInputs()
         ensureControlState()
         startRadioTick()
+        try { bindControlInputs() } catch (e) { console.warn('[Control] bind inputs', e) }
         loadControlState()
   `
 }
