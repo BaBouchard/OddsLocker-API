@@ -62,6 +62,7 @@ function dashboardStyles() {
           --green-dim: #16a34a;
         }
         * { box-sizing: border-box; }
+        html { scrollbar-gutter: stable; }
         body {
           font-family: 'Outfit', system-ui, sans-serif;
           background: var(--bg);
@@ -70,17 +71,25 @@ function dashboardStyles() {
           min-height: 100vh;
           line-height: 1.5;
         }
-        .wrap { max-width: 64rem; margin: 0 auto; padding: 2rem 1.5rem; }
-        .wrap.wrap-wide { max-width: 88rem; }
+        .wrap { max-width: 88rem; margin: 0 auto; padding: 2rem 1.5rem; }
+        .dash-chrome { margin-bottom: 1.25rem; }
         .header {
           display: flex;
           align-items: center;
           gap: 1rem;
-          margin-bottom: 0.25rem;
-          flex-wrap: wrap;
+          margin-bottom: 0.75rem;
+          flex-wrap: nowrap;
         }
-        .header img { height: 42px; width: auto; display: block; }
-        .header-actions { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+        .header img { height: 42px; width: auto; display: block; flex-shrink: 0; }
+        .header h1 { flex: 0 0 auto; }
+        .header-actions {
+          margin-left: auto;
+          flex: 0 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          min-width: 12.5rem;
+        }
         a.download-scraper {
           display: inline-flex;
           align-items: center;
@@ -94,20 +103,25 @@ function dashboardStyles() {
           white-space: nowrap;
         }
         a.download-scraper:hover { background: linear-gradient(135deg, #9333ea, #4f46e5); }
+        .header-actions-spacer { display: block; width: 12.5rem; height: 2rem; }
         h1 {
           font-size: 1.75rem;
           font-weight: 600;
           margin: 0;
           letter-spacing: -0.02em;
         }
-        .tagline { color: var(--muted); font-size: 0.95rem; margin: 0 0 1rem 0; }
+        .tagline { color: var(--muted); font-size: 0.95rem; margin: 0 0 1rem 0; min-height: 1.45rem; }
         .dash-nav {
           display: flex;
           gap: 0.35rem;
-          margin-bottom: 1.25rem;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
+          width: 100%;
+          max-width: 36rem;
         }
         .dash-nav a {
+          flex: 1 1 0;
+          min-width: 0;
+          text-align: center;
           padding: 0.35rem 0.75rem;
           border-radius: 999px;
           border: 1px solid var(--border);
@@ -121,6 +135,11 @@ function dashboardStyles() {
           background: rgba(167,139,250,0.12);
           border-color: rgba(167,139,250,0.45);
           color: var(--accent);
+        }
+        @media (max-width: 640px) {
+          .dash-nav { max-width: none; overflow-x: auto; }
+          .header-actions { min-width: 0; }
+          .header-actions-spacer { display: none; }
         }
         .section-title { font-size: 0.85rem; font-weight: 500; color: var(--muted); margin-bottom: 0.75rem; }
         .section-title .lw-sub { font-weight: 400; color: var(--muted); opacity: 0.85; font-size: 0.8rem; }
@@ -799,7 +818,7 @@ export function renderLoginHtml() {
 
 /**
  * @param {import('express').Response} res
- * @param {{ activePage: DashboardPageId, pageTitle: string, tagline: string, contentHtml: string, scraperDownloadButtonHtml?: string, wide?: boolean }} opts
+ * @param {{ activePage: DashboardPageId, pageTitle: string, tagline: string, contentHtml: string, scraperDownloadButtonHtml?: string }} opts
  */
 export function renderDashboardPage(res, opts) {
   const {
@@ -807,10 +826,11 @@ export function renderDashboardPage(res, opts) {
     pageTitle,
     tagline,
     contentHtml,
-    scraperDownloadButtonHtml = '',
-    wide = false
+    scraperDownloadButtonHtml = ''
   } = opts
-  const wrapClass = wide ? 'wrap wrap-wide' : 'wrap'
+  const headerActionHtml =
+    scraperDownloadButtonHtml ||
+    '<span class="header-actions-spacer" aria-hidden="true"></span>'
   res.type('html').send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -823,15 +843,19 @@ export function renderDashboardPage(res, opts) {
   <style>${dashboardStyles()}</style>
 </head>
 <body>
-  <div class="${wrapClass}">
-    <div class="header">
-      <img src="/assets/logo.png" alt="OddsLocker">
-      <h1>OddsLocker API</h1>
-      ${scraperDownloadButtonHtml ? `<div class="header-actions">${scraperDownloadButtonHtml}</div>` : ''}
+  <div class="wrap">
+    <div class="dash-chrome">
+      <div class="header">
+        <img src="/assets/logo.png" alt="OddsLocker">
+        <h1>OddsLocker API</h1>
+        <div class="header-actions">${headerActionHtml}</div>
+      </div>
+      <nav class="dash-nav" aria-label="Dashboard">${buildNavHtml(activePage)}</nav>
     </div>
-    <p class="tagline">${tagline}</p>
-    <nav class="dash-nav" aria-label="Dashboard">${buildNavHtml(activePage)}</nav>
-    ${contentHtml}
+    <main class="dash-main">
+      <p class="tagline">${tagline}</p>
+      ${contentHtml}
+    </main>
     <p class="foot">
       <a href="/health">/health</a> · <a href="/export/csv" download>Export CSV</a> · Ingest: <code>POST /ingest</code> · WS: <code>wss://host/?token=…</code>
     </p>

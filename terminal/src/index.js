@@ -415,8 +415,7 @@ app.get('/', (req, res) => {
       pageTitle: 'VPS status',
       tagline: 'Scraper VPS health and sportsbook activity.',
       contentHtml: vpsPageContent(),
-      scraperDownloadButtonHtml: downloadBtn,
-      wide: true
+      scraperDownloadButtonHtml: downloadBtn
     })
   })
 })
@@ -440,8 +439,7 @@ app.get('/league-watcher', (req, res) => {
       pageTitle: 'League watcher',
       tagline: 'Bovada live catalog — sports and leagues seen by ingest.',
       contentHtml: leaguesPageContent(),
-      scraperDownloadButtonHtml: downloadBtn,
-      wide: true
+      scraperDownloadButtonHtml: downloadBtn
     })
   })
 })
@@ -453,8 +451,7 @@ app.get('/json', (req, res) => {
       pageTitle: 'JSON feed',
       tagline: 'Raw WebSocket payload — type, timestamp, data, and VPS sources.',
       contentHtml: jsonPageContent(),
-      scraperDownloadButtonHtml: downloadBtn,
-      wide: true
+      scraperDownloadButtonHtml: downloadBtn
     })
   })
 })
