@@ -1,0 +1,20 @@
+{
+  "name": "oddslocker-engine",
+  "version": "0.1.0",
+  "description": "OddsLocker channel engine: sync batches, residential proxies, control deck UI",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "undici": "^6.21.0",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
