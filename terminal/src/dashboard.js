@@ -1103,14 +1103,15 @@ function vpsControlDeckScript() {
           if (!bestSlot) return { nextSlot: null, nextInMs: null }
           return { nextSlot: bestSlot, nextInMs: Math.max(0, bestAt - Date.now()) }
         }
+        function isRemoteOrchestrationActive() {
+          const el = document.getElementById('deckRemoteOrchestration')
+          if (el) return el.checked
+          return !!controlState?.global?.remoteOrchestration
+        }
         function computeOrchestrationScheduleClient() {
           if (!controlState) return { nextSlot: null, nextInMs: null }
           const g = controlState.global || {}
-          const sch = controlState.schedule
-          if (sch && sch.mode === 'orchestration' && sch.nextSlot) {
-            return { nextSlot: sch.nextSlot, nextInMs: sch.nextInMs }
-          }
-          if (!g.remoteOrchestration || !g.fleetEnabled || !g.autoPoll) {
+          if (!isRemoteOrchestrationActive() || !g.fleetEnabled) {
             return { nextSlot: null, nextInMs: null }
           }
           const now = Date.now()
@@ -1134,7 +1135,7 @@ function vpsControlDeckScript() {
         }
         function updateCarRadioDisplay() {
           const g = controlState?.global
-          const remote = !!g?.remoteOrchestration
+          const remote = isRemoteOrchestrationActive()
           const deck = document.getElementById('controlDeck')
           const lamp = document.getElementById('radioModeLamp')
           const hint = document.getElementById('orchestrationHint')
@@ -1144,22 +1145,28 @@ function vpsControlDeckScript() {
           if (deck) deck.classList.toggle('manual-mode', !remote)
           if (lamp) lamp.classList.toggle('orch', remote)
           if (hint) {
-            hint.textContent = remote
-              ? 'Orchestration — deck schedules fleet polls'
-              : 'Manual — scrapers poll on their own; feed still listens'
+            if (!remote) {
+              hint.textContent = 'Manual — scrapers poll on their own; feed still listens'
+            } else if (!g?.fleetEnabled) {
+              hint.textContent = 'Orchestration — fleet halted'
+            } else if (!g?.autoPoll) {
+              hint.textContent = 'Orchestration — schedule preview (turn on auto poll to execute)'
+            } else {
+              hint.textContent = 'Orchestration — deck schedules fleet polls'
+            }
           }
           renderSegDisplay(modeSeg, remote ? 'ORCH' : 'MAN')
           let nextSlot = null
           let nextInMs = null
           if (remote) {
-            const sch = computeOrchestrationScheduleClient()
-            nextSlot = sch.nextSlot
-            nextInMs = sch.nextInMs
-            if (!g?.autoPoll || !g?.fleetEnabled) {
-              renderSegDisplay(countdownSeg, 'WAIT')
+            if (!g?.fleetEnabled) {
+              renderSegDisplay(countdownSeg, 'HALT')
               renderSegDisplay(vpsSeg, '--')
               return
             }
+            const sch = computeOrchestrationScheduleClient()
+            nextSlot = sch.nextSlot
+            nextInMs = sch.nextInMs
           } else {
             const sch = computeManualSchedule(vpsSourcesCache)
             nextSlot = sch.nextSlot
@@ -1299,11 +1306,15 @@ function vpsControlDeckScript() {
           const remoteOrch = document.getElementById('deckRemoteOrchestration')
           if (poll) poll.addEventListener('input', () => {
             if (pollVal) pollVal.textContent = fmtSec(poll.value)
+            if (controlState?.global) controlState.global.defaultPollIntervalSec = Number(poll.value)
             queueSave({ global: { defaultPollIntervalSec: Number(poll.value) } })
+            updateCarRadioDisplay()
           })
           if (stagger) stagger.addEventListener('input', () => {
             if (staggerVal) staggerVal.textContent = fmtSec(stagger.value)
+            if (controlState?.global) controlState.global.vpsStaggerSec = Number(stagger.value)
             queueSave({ global: { vpsStaggerSec: Number(stagger.value) } })
+            updateCarRadioDisplay()
           })
           if (configPoll) configPoll.addEventListener('input', () => {
             if (configPollVal) configPollVal.textContent = fmtSec(configPoll.value)
@@ -1314,6 +1325,7 @@ function vpsControlDeckScript() {
           if (lw) lw.addEventListener('change', () => queueSave({ global: { leagueWatcherPush: lw.checked } }))
           if (replaceAll) replaceAll.addEventListener('change', () => queueSave({ global: { replaceAllOnIngest: replaceAll.checked } }))
           if (remoteOrch) remoteOrch.addEventListener('change', () => {
+            if (controlState?.global) controlState.global.remoteOrchestration = remoteOrch.checked
             queueSave({ global: { remoteOrchestration: remoteOrch.checked } })
             updateCarRadioDisplay()
           })

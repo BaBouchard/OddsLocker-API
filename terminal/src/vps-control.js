@@ -209,7 +209,7 @@ export function resolveScraperConfig(sourceId) {
 /** Next scheduled VPS poll for orchestration countdown UI. */
 export function computeOrchestrationSchedule(now = Date.now()) {
   const g = controlState.global
-  if (!g.remoteOrchestration || !g.fleetEnabled || !g.autoPoll) {
+  if (!g.remoteOrchestration || !g.fleetEnabled) {
     return { mode: 'manual', nextSlot: null, nextInMs: null, scheduleEpoch: g.scheduleEpoch }
   }
   const pollMs = clampNum(g.defaultPollIntervalSec, 0.5, 120, 2) * 1000
