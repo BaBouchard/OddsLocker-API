@@ -13,10 +13,19 @@ const NAV_ITEMS = [
   { id: 'json', href: '/json', label: 'JSON feed' }
 ]
 
+const VPS_BOOK_ABBR = {
+  BetRivers: 'BR',
+  FanDuel: 'FD',
+  Bovada: 'BOV',
+  PointsBet: 'PB',
+  BetMGM: 'MGM',
+  '888sport': '888'
+}
+
 function buildVpsBookRowsHtml() {
   return VPS_CARD_BOOKS.map(
     (book) =>
-      `<div class="vps-book-row" data-book="${book}"><span class="vps-book-dot off"></span><span class="vps-book-name">${book}</span><span class="vps-book-count">—</span></div>`
+      `<div class="vps-book-row" data-book="${book}" title="${book}"><span class="vps-book-dot off"></span><span class="vps-book-name">${VPS_BOOK_ABBR[book] || book}</span><span class="vps-book-count">—</span></div>`
   ).join('')
 }
 
@@ -36,7 +45,7 @@ const VPS_DEMO_TAGS = {
 function buildVpsSlotHtml(n) {
   const slot = `vps${n}`
   const [heatCls, heatText] = VPS_DEMO_TAGS[n] || ['cool', 'Cool']
-  return `<div class="vps-slot" data-slot="${slot}"><div class="vps-slot-inner"><div class="vps-label">VPS ${n}</div><div class="vps-heat-tag ${heatCls}">${heatText}</div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books">${buildVpsBookRowsHtml()}</div></div></div>`
+  return `<div class="vps-slot" data-slot="${slot}"><div class="vps-slot-inner"><div class="vps-head"><span class="vps-label">${n}</span><span class="vps-heat-tag ${heatCls}">${heatText}</span></div><div class="vps-n">—</div><div class="vps-time">—</div><div class="vps-books">${buildVpsBookRowsHtml()}</div></div></div>`
 }
 
 export function buildVpsGridHtml() {
@@ -255,63 +264,121 @@ function dashboardStyles() {
         .section-title .lw-sub { font-weight: 400; color: var(--muted); opacity: 0.85; font-size: 0.8rem; }
         .section-title .total-odds { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--accent); margin-left: 0.35rem; }
         @keyframes green-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-        .vps-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; perspective: 1100px; }
-        @media (max-width: 1100px) { .vps-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 700px) { .vps-grid { grid-template-columns: repeat(2, 1fr); } }
+        .vps-grid {
+          display: grid;
+          grid-template-columns: repeat(10, minmax(0, 1fr));
+          gap: 0.4rem;
+          margin-bottom: 1rem;
+        }
+        @media (max-width: 1100px) {
+          .vps-grid {
+            grid-template-columns: repeat(10, minmax(5.25rem, 1fr));
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+          }
+        }
         .vps-slot {
           --heat: 0;
-          padding: 2px;
-          border-radius: 10px;
-          text-align: center;
-          transform-style: preserve-3d;
-          will-change: transform, opacity;
-          transition: transform 0.55s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.55s ease-out, box-shadow 0.3s ease-out;
-          background: linear-gradient(
-            to top,
-            #7a3535 0%,
-            #946040 calc(var(--heat) * 42%),
-            #857848 calc(var(--heat) * 72%),
-            #524672 calc(var(--heat) * 100%),
-            #524672 100%
-          );
-        }
-        .vps-slot.heat-cooldown { box-shadow: none; }
-        .vps-slot-inner {
-          background: var(--surface);
+          position: relative;
+          min-width: 0;
+          padding: 1px;
           border-radius: 8px;
-          padding: 0.65rem 0.75rem;
+          text-align: center;
+          background: linear-gradient(145deg, rgba(167,139,250,0.32), rgba(124,58,237,0.18) 55%, rgba(255,255,255,0.04) 100%);
+          box-shadow:
+            0 0 calc(4px + var(--heat) * 12px) rgba(167,139,250, calc(0.08 + var(--heat) * 0.22)),
+            0 4px 14px rgba(0,0,0,0.28);
+          transition: box-shadow 0.35s ease-out, opacity 0.45s ease-out, transform 0.45s ease-out;
+        }
+        .vps-slot.heat-cooldown {
+          background: linear-gradient(145deg, rgba(127,29,29,0.45), rgba(67,20,20,0.35));
+          animation: vps-cooldown-pulse 2.6s ease-in-out infinite;
+        }
+        @keyframes vps-cooldown-pulse {
+          0%, 100% { box-shadow: 0 0 14px rgba(127,29,29,0.35); }
+          50% { box-shadow: 0 0 5px rgba(127,29,29,0.08); }
+        }
+        .vps-slot-inner {
+          background: linear-gradient(180deg, #1c1c24 0%, #121218 100%);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 7px;
+          padding: 0.38rem 0.32rem 0.42rem;
           height: 100%;
         }
         .vps-slot.deal-in {
           opacity: 1 !important;
-          transform: rotateX(0deg) translateY(0) !important;
-          box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+          transform: translateY(0) !important;
         }
-        .vps-slot .vps-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 0.35rem; }
+        .vps-slot .vps-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.2rem;
+          margin-bottom: 0.28rem;
+          padding-bottom: 0.22rem;
+          border-bottom: 1px solid rgba(167,139,250,0.12);
+        }
+        .vps-slot .vps-label {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.62rem;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          color: #c4b5fd;
+        }
         .vps-slot .vps-heat-tag {
-          font-size: 0.58rem;
-          font-weight: 500;
-          letter-spacing: 0.03em;
+          font-size: 0.48rem;
+          font-weight: 600;
+          letter-spacing: 0.04em;
           text-transform: uppercase;
-          color: #a1a1aa;
-          margin-bottom: 0.3rem;
+          color: #71717a;
+          white-space: nowrap;
         }
         .vps-slot .vps-heat-tag.cool { color: #8b7eb5; }
         .vps-slot .vps-heat-tag.warm { color: #a89458; }
-        .vps-slot .vps-heat-tag.hot { color: #b07850; }
-        .vps-slot .vps-heat-tag.critical { color: #a86565; }
-        .vps-slot .vps-heat-tag.cooldown { color: #9e5050; }
-        .vps-slot .vps-n { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text); margin-bottom: 0.15rem; }
-        .vps-slot .vps-time { font-size: 0.65rem; color: var(--muted); margin-bottom: 0.5rem; }
-        .vps-slot .vps-books { text-align: left; border-top: 1px solid var(--border); padding-top: 0.4rem; }
-        .vps-slot .vps-book-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.25rem; }
+        .vps-slot .vps-heat-tag.hot { color: #c084fc; }
+        .vps-slot .vps-heat-tag.critical { color: #f87171; }
+        .vps-slot .vps-heat-tag.cooldown { color: #fca5a5; }
+        .vps-slot .vps-n {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.58rem;
+          color: var(--text);
+          margin-bottom: 0.1rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .vps-slot .vps-time {
+          font-size: 0.5rem;
+          color: var(--muted);
+          margin-bottom: 0.32rem;
+        }
+        .vps-slot .vps-books {
+          text-align: left;
+          border-top: 1px solid rgba(255,255,255,0.05);
+          padding-top: 0.28rem;
+        }
+        .vps-slot .vps-book-row {
+          display: flex;
+          align-items: center;
+          gap: 0.22rem;
+          font-size: 0.48rem;
+          color: var(--muted);
+          margin-bottom: 0.14rem;
+          line-height: 1.1;
+        }
         .vps-slot .vps-book-row:last-child { margin-bottom: 0; }
-        .vps-slot .vps-book-name { flex: 1; min-width: 0; }
-        .vps-slot .vps-book-count { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
-        .vps-slot .vps-book-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-        .vps-slot .vps-book-dot.active { background: #9484c4; animation: green-blink 2s ease-in-out infinite; }
+        .vps-slot .vps-book-name { flex: 1; min-width: 0; font-weight: 500; }
+        .vps-slot .vps-book-count {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.48rem;
+          color: #a1a1aa;
+          margin-left: auto;
+          font-variant-numeric: tabular-nums;
+        }
+        .vps-slot .vps-book-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+        .vps-slot .vps-book-dot.active { background: #a78bfa; box-shadow: 0 0 5px rgba(167,139,250,0.55); animation: green-blink 2s ease-in-out infinite; }
         .vps-slot .vps-book-dot.stale { background: #eab308; }
-        .vps-slot .vps-book-dot.off { background: var(--muted); opacity: 0.5; }
+        .vps-slot .vps-book-dot.off { background: var(--muted); opacity: 0.45; }
         .vps-slot .vps-book-dot.banned { background: #7a3333; }
         .league-watcher-wrap {
           margin-bottom: 1.25rem;
@@ -760,17 +827,16 @@ function dashboardStyles() {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%) rotate(-12deg);
-          font-size: 0.65rem;
+          font-size: 0.52rem;
           font-weight: 700;
-          letter-spacing: 0.12em;
-          color: rgba(248,113,113,0.75);
+          letter-spacing: 0.1em;
+          color: rgba(248,113,113,0.8);
           border: 1px solid rgba(248,113,113,0.45);
-          padding: 0.15rem 0.45rem;
+          padding: 0.1rem 0.35rem;
           border-radius: 4px;
           pointer-events: none;
           z-index: 2;
         }
-        .vps-slot { position: relative; }
         .car-radio {
           margin-bottom: 1rem;
         }
@@ -1428,27 +1494,11 @@ function vpsPageScript() {
           if (level < 0.75) return { text: 'Hot', cls: 'hot' }
           return { text: 'Critical', cls: 'critical' }
         }
-        const COOLDOWN_BLINK_MS = 2600
-        const COOLDOWN_BORDER_ON = '#7a3333'
-        let cooldownSyncStarted = false
-        function ensureCooldownSyncLoop() {
-          if (cooldownSyncStarted) return
-          cooldownSyncStarted = true
-          function tickCooldownBlink() {
-            const phase = (Date.now() % COOLDOWN_BLINK_MS) / COOLDOWN_BLINK_MS
-            const bg = phase < 0.48 ? COOLDOWN_BORDER_ON : 'transparent'
-            document.querySelectorAll('.vps-slot.heat-cooldown').forEach((el) => { el.style.background = bg })
-            requestAnimationFrame(tickCooldownBlink)
-          }
-          requestAnimationFrame(tickCooldownBlink)
-        }
         function applyVpsHeat(el, level, cooldown) {
           if (!el) return
           const clamped = Math.max(0, Math.min(1, level))
           el.style.setProperty('--heat', String(clamped))
           el.classList.toggle('heat-cooldown', !!cooldown)
-          if (cooldown) ensureCooldownSyncLoop()
-          else el.style.background = ''
           const tag = el.querySelector('.vps-heat-tag')
           if (tag) {
             const { text, cls } = heatLabelForLevel(clamped, cooldown)
@@ -1495,10 +1545,10 @@ function vpsPageScript() {
           if (slots.length === 0) return
           slots.forEach((slot) => {
             slot.style.opacity = '0'
-            slot.style.transform = 'rotateX(90deg) translateY(-12px)'
+            slot.style.transform = 'translateY(8px)'
           })
           slots.forEach((slot, idx) => {
-            setTimeout(() => slot.classList.add('deal-in'), idx * 120)
+            setTimeout(() => slot.classList.add('deal-in'), idx * 60)
           })
         })()
         function agoRefreshIntervalMs(ageSec) {
