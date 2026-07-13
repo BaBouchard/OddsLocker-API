@@ -463,18 +463,19 @@ function dashboardStyles() {
         .foot a:hover { text-decoration: underline; }
         .control-deck {
           --deck-metal: #1a1a22;
-          --deck-glow: #22d3ee;
-          --deck-magenta: #e879f9;
+          --deck-glow: #a78bfa;
+          --deck-magenta: #c4b5fd;
           --deck-amber: #fbbf24;
-          margin-bottom: 1.75rem;
+          margin-top: 0.25rem;
+          margin-bottom: 0;
           border-radius: 14px;
           padding: 1px;
-          background: linear-gradient(145deg, rgba(34,211,238,0.35), rgba(232,121,249,0.2) 40%, rgba(251,191,36,0.15) 100%);
+          background: linear-gradient(145deg, rgba(167,139,250,0.4), rgba(124,58,237,0.25) 40%, rgba(251,191,36,0.12) 100%);
           box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
         }
         .control-deck-inner {
           background:
-            radial-gradient(ellipse 120% 80% at 50% -20%, rgba(34,211,238,0.08), transparent 55%),
+            radial-gradient(ellipse 120% 80% at 50% -20%, rgba(167,139,250,0.1), transparent 55%),
             linear-gradient(180deg, #14141a 0%, #0e0e13 100%);
           border-radius: 13px;
           padding: 1rem 1.1rem 1.15rem;
@@ -492,7 +493,7 @@ function dashboardStyles() {
           font-weight: 600;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: #a5f3fc;
+          color: #c4b5fd;
         }
         .deck-led {
           width: 8px;
@@ -600,9 +601,9 @@ function dashboardStyles() {
           transition: transform 0.2s, background 0.2s;
         }
         .deck-switch input:checked + .deck-switch-pill {
-          background: rgba(34,211,238,0.15);
-          border-color: rgba(34,211,238,0.55);
-          box-shadow: 0 0 10px rgba(34,211,238,0.25);
+          background: rgba(167,139,250,0.15);
+          border-color: rgba(167,139,250,0.55);
+          box-shadow: 0 0 10px rgba(167,139,250,0.28);
         }
         .deck-switch input:checked + .deck-switch-pill::after {
           transform: translateX(16px);
@@ -635,15 +636,15 @@ function dashboardStyles() {
           transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
         }
         .deck-btn:hover {
-          border-color: rgba(34,211,238,0.45);
-          color: #a5f3fc;
-          box-shadow: 0 0 14px rgba(34,211,238,0.12);
+          border-color: rgba(167,139,250,0.45);
+          color: #c4b5fd;
+          box-shadow: 0 0 14px rgba(167,139,250,0.15);
         }
         .deck-btn.accent {
-          border-color: rgba(232,121,249,0.4);
-          color: #f5d0fe;
+          border-color: rgba(196,181,253,0.45);
+          color: #e9d5ff;
         }
-        .deck-btn.accent:hover { box-shadow: 0 0 14px rgba(232,121,249,0.15); }
+        .deck-btn.accent:hover { box-shadow: 0 0 14px rgba(167,139,250,0.2); }
         .deck-summary {
           min-width: 10rem;
           padding: 0.85rem;
@@ -679,8 +680,8 @@ function dashboardStyles() {
           border-color: rgba(248,113,113,0.25);
         }
         .deck-channel.active-push {
-          border-color: rgba(34,211,238,0.35);
-          box-shadow: 0 0 16px rgba(34,211,238,0.08);
+          border-color: rgba(167,139,250,0.4);
+          box-shadow: 0 0 16px rgba(167,139,250,0.12);
         }
         .deck-channel .ch-label {
           font-size: 0.58rem;
@@ -706,9 +707,9 @@ function dashboardStyles() {
           left: 0;
           right: 0;
           height: 0%;
-          background: linear-gradient(0deg, #0891b2, #22d3ee 60%, #a5f3fc);
+          background: linear-gradient(0deg, #6d28d9, #a78bfa 60%, #c4b5fd);
           transition: height 0.35s ease-out;
-          box-shadow: 0 0 12px rgba(34,211,238,0.35);
+          box-shadow: 0 0 12px rgba(167,139,250,0.4);
         }
         .deck-channel .ch-vu.peak .ch-vu-fill {
           background: linear-gradient(0deg, #b45309, var(--deck-amber) 55%, #fde68a);
@@ -812,8 +813,8 @@ function dashboardStyles() {
           box-shadow: 0 0 10px rgba(245,158,11,0.65);
         }
         .car-radio-mode-lamp.orch {
-          background: #22d3ee;
-          box-shadow: 0 0 12px rgba(34,211,238,0.7);
+          background: #a78bfa;
+          box-shadow: 0 0 12px rgba(167,139,250,0.75);
         }
         .car-radio-screens {
           display: flex;
@@ -1823,11 +1824,12 @@ export function renderDashboardPage(res, opts) {
 
 export function vpsPageContent() {
   return `
-    ${buildVpsControlDeckHtml()}
     <div class="section-title">VPS status <span class="lw-sub">(heat border: demo levels until scrapers report heat)</span></div>
     <div class="vps-grid" id="vpsGrid">
       ${buildVpsGridHtml()}
-    </div>`
+    </div>
+    <div class="section-title" style="margin-top: 1.5rem;">Fleet control <span class="lw-sub">DJ deck — remote scraper command & telemetry</span></div>
+    ${buildVpsControlDeckHtml()}`
 }
 
 export function livePageContent() {
