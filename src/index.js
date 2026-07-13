@@ -21,6 +21,7 @@ import { KalshiAdapter } from './adapters/kalshi.js'
 import { MockAdapter } from './adapters/mock.js'
 import { ScrapeAdapter } from './adapters/scrape.js'
 import { mergeSnapshotWithPersistentCache } from './league-watcher-cache.js'
+import { createTerminalControl } from './terminal-control.js'
 
 const LEAGUE_KEY = process.env.LEAGUE_KEY || 'basketball_nba'
 const WS_PORT = Number(process.env.WS_SERVER_PORT) || 8765
@@ -328,6 +329,13 @@ async function main() {
 
     const lastEntriesByBook = {}
     const adapters = []
+    const terminalControl = TERMINAL_URL
+      ? createTerminalControl({
+          terminalUrl: TERMINAL_URL,
+          sourceId: SOURCE_ID,
+          getAdapters: () => adapters
+        })
+      : null
     let lastFetchBookIds = null // when set, broadcast only these books' entries (so "Fetch FanDuel only" shows only FanDuel)
     const bookIdToKey = Object.fromEntries(bookConfigs.map((b) => [b.bookId, b.config.sportsbookName]))
     let lastLeagueWatcher = null // Bovada-only snapshot for terminal League Watcher (raw JSON derived)
@@ -352,9 +360,12 @@ async function main() {
       }
       server.broadcast(merged, { leagueWatcher: lastLeagueWatcher })
       if (PUSH_URL) pushToApi(merged, PUSH_URL, PUSH_KEY)
-      if (TERMINAL_URL) {
+      if (TERMINAL_URL && terminalControl?.shouldPush()) {
         pushToTerminal(merged, TERMINAL_URL, SOURCE_ID, {
-          leagueWatcher: lastLeagueWatcher || undefined
+          leagueWatcher:
+            terminalControl.shouldPushLeagueWatcher() && lastLeagueWatcher
+              ? lastLeagueWatcher
+              : undefined
         })
       }
     }
@@ -389,7 +400,10 @@ async function main() {
       console.log(`[LiveOdds] Adapter "${adapter.name}" (${adapter.bookId}) started for ${bookKey} (league: ${LEAGUE_KEY})`)
     }
 
+    terminalControl?.start()
+
     const shutdown = () => {
+      terminalControl?.stop()
       adapters.forEach((a) => a.stop())
       server.close()
       process.exit(0)
@@ -401,6 +415,13 @@ async function main() {
 
   // Single adapter (poll, WS, scrape, or mock)
   const adapter = selectAdapter()
+  const terminalControl = TERMINAL_URL
+    ? createTerminalControl({
+        terminalUrl: TERMINAL_URL,
+        sourceId: SOURCE_ID,
+        getAdapters: () => [adapter]
+      })
+    : null
   const server = createBroadcastServer(WS_PORT, {
     getState() {
       if (typeof adapter.autoPoll !== 'undefined') {
@@ -432,9 +453,12 @@ async function main() {
     }
     server.broadcast(entries, broadcastMeta)
     if (PUSH_URL) pushToApi(entries, PUSH_URL, PUSH_KEY)
-    if (TERMINAL_URL) {
+    if (TERMINAL_URL && terminalControl?.shouldPush()) {
       pushToTerminal(entries, TERMINAL_URL, SOURCE_ID, {
-        leagueWatcher: lastLeagueWatcherSingle || undefined
+        leagueWatcher:
+          terminalControl.shouldPushLeagueWatcher() && lastLeagueWatcherSingle
+            ? lastLeagueWatcherSingle
+            : undefined
       })
     }
   }
@@ -442,7 +466,10 @@ async function main() {
   await adapter.start(LEAGUE_KEY, onOdds)
   console.log(`[LiveOdds] Adapter "${adapter.name}" started for league: ${LEAGUE_KEY}`)
 
+  terminalControl?.start()
+
   const shutdown = () => {
+    terminalControl?.stop()
     adapter.stop()
     server.close()
     process.exit(0)

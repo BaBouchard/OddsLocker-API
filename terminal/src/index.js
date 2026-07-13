@@ -7,7 +7,6 @@ import { WebSocketServer } from 'ws'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import {
-  VPS_SLOTS,
   renderLoginHtml,
   renderDashboardPage,
   vpsPageContent,
@@ -15,6 +14,15 @@ import {
   leaguesPageContent,
   jsonPageContent
 } from './dashboard.js'
+import {
+  VPS_SLOTS,
+  sourceToSlot,
+  getPublicControlSnapshot,
+  getVpsControlState,
+  updateVpsControlState,
+  resetVpsControlState,
+  resolveScraperConfig
+} from './vps-control.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 3000
@@ -244,11 +252,19 @@ function clearAllTerminalOddsState() {
 
 const KNOWN_SPORTSBOOKS = ['BetRivers', 'FanDuel', 'Bovada', 'PointsBet', 'BetMGM', '888sport', 'The Score Bet', 'Polymarket', 'Kalshi']
 
-function sourceToSlot(sourceId) {
-  if (!sourceId) return null
-  const s = String(sourceId).toLowerCase()
-  const m = s.match(/^(?:vps|scraper)(\d+)$/)
-  return m ? 'vps' + m[1] : (VPS_SLOTS.includes(s) ? s : null)
+function shouldReplaceAllOnIngest() {
+  const g = getVpsControlState().global
+  return TERMINAL_REPLACE_ALL_ON_INGEST || (g.remoteOrchestration && g.replaceAllOnIngest)
+}
+
+function ingestAllowedForSource(sourceId) {
+  const g = getVpsControlState().global
+  if (!g.fleetEnabled) return false
+  if (!g.remoteOrchestration) return true
+  const slot = sourceToSlot(sourceId)
+  if (!slot) return true
+  const slotCfg = getVpsControlState().slots[slot]
+  return !!(slotCfg?.enabled && slotCfg?.pushEnabled)
 }
 
 function countEntriesBySportsbook(entries) {
@@ -295,7 +311,8 @@ function mergeAndBroadcast() {
         data: sorted,
         ts: Date.now(),
         sources,
-        leagueWatcher: lastLeagueWatcher
+        leagueWatcher: lastLeagueWatcher,
+        vpsControl: getPublicControlSnapshot()
       },
       jsonSafeReplacer
     )
@@ -366,12 +383,17 @@ app.post('/ingest', (req, res) => {
   if (!sourceId || !Array.isArray(data)) {
     return res.status(400).json({ error: 'Missing sourceId or data array' })
   }
+  if (!ingestAllowedForSource(sourceId)) {
+    console.warn('[Terminal] Ignored ingest from', sourceId, '(fleet or slot disabled in control center)')
+    return res.json({ ok: true, skipped: true, reason: 'slot_disabled' })
+  }
+  const replaceAll = shouldReplaceAllOnIngest()
   // With REPLACE_ALL, empty ingests would wipe the whole feed (e.g. another VPS posting 0 rows).
-  if (TERMINAL_REPLACE_ALL_ON_INGEST && data.length === 0) {
+  if (replaceAll && data.length === 0) {
     console.warn('[Terminal] Ignored empty ingest from', sourceId, '(REPLACE_ALL_ON_INGEST — would have cleared all data)')
     return res.json({ ok: true, skipped: true, reason: 'empty_data_replace_all' })
   }
-  if (TERMINAL_REPLACE_ALL_ON_INGEST) {
+  if (replaceAll) {
     clearAllTerminalOddsState()
   }
   lastBySource[sourceId] = data
@@ -387,7 +409,8 @@ app.post('/ingest', (req, res) => {
     lastBookCountsBySource[slot] = bookCounts
   }
   const lw = req.body?.leagueWatcher
-  if (lw && typeof lw === 'object') {
+  const gCtrl = getVpsControlState().global
+  if (lw && typeof lw === 'object' && (!gCtrl.remoteOrchestration || gCtrl.leagueWatcherPush)) {
     lastLeagueWatcher = {
       sports: Array.isArray(lw.sports) ? lw.sports : [],
       updatedAt: lw.updatedAt || Date.now(),
@@ -413,7 +436,7 @@ app.get('/', (req, res) => {
     renderDashboardPage(r, {
       activePage: 'vps',
       pageTitle: 'VPS status',
-      tagline: 'Scraper VPS health and sportsbook activity.',
+      tagline: 'Fleet control station and VPS health — remote poll, push, and maintenance.',
       contentHtml: vpsPageContent(),
       scraperDownloadButtonHtml: downloadBtn
     })
@@ -466,6 +489,46 @@ app.post('/login', (req, res) => {
   if (requestIsHttps(req)) parts.push('Secure')
   res.setHeader('Set-Cookie', parts.join('; '))
   res.redirect('/')
+})
+
+app.get('/api/vps-control', (req, res) => {
+  if (LOGIN_PASSWORD && !isAuthed(req)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  res.json(getPublicControlSnapshot())
+})
+
+app.put('/api/vps-control', (req, res) => {
+  if (LOGIN_PASSWORD && !isAuthed(req)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  const body = req.body || {}
+  updateVpsControlState(body)
+  mergeAndBroadcast()
+  res.json(getPublicControlSnapshot())
+})
+
+app.post('/api/vps-control/reset', (req, res) => {
+  if (LOGIN_PASSWORD && !isAuthed(req)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  resetVpsControlState()
+  mergeAndBroadcast()
+  res.json(getPublicControlSnapshot())
+})
+
+app.get('/api/scraper-config', (req, res) => {
+  if (TERMINAL_INGEST_SECRET) {
+    const sent = String(req.headers['x-terminal-ingest-secret'] || '').trim()
+    if (sent !== TERMINAL_INGEST_SECRET) {
+      return res.status(401).json({ error: 'Invalid or missing X-Terminal-Ingest-Secret' })
+    }
+  }
+  const sourceId = String(req.query.sourceId || '').trim()
+  if (!sourceId) {
+    return res.status(400).json({ error: 'Missing sourceId query parameter' })
+  }
+  res.json(resolveScraperConfig(sourceId))
 })
 
 app.get('/health', (_req, res) => {
@@ -570,7 +633,14 @@ wss.on('connection', (ws, req) => {
   const sources = getSourceStatsForSlots()
   try {
     const snap = JSON.stringify(
-      { type: 'odds', data: sorted, ts: Date.now(), sources, leagueWatcher: lastLeagueWatcher },
+      {
+        type: 'odds',
+        data: sorted,
+        ts: Date.now(),
+        sources,
+        leagueWatcher: lastLeagueWatcher,
+        vpsControl: getPublicControlSnapshot()
+      },
       jsonSafeReplacer
     )
     ws.send(snap)

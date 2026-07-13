@@ -1,6 +1,8 @@
 /** @typedef {'vps' | 'live' | 'leagues' | 'json'} DashboardPageId */
 
-export const VPS_SLOTS = Array.from({ length: 10 }, (_, i) => `vps${i + 1}`)
+import { VPS_SLOTS } from './vps-control.js'
+
+export { VPS_SLOTS }
 
 const VPS_CARD_BOOKS = ['BetRivers', 'FanDuel', 'Bovada', 'PointsBet', 'BetMGM', '888sport']
 
@@ -39,6 +41,114 @@ function buildVpsSlotHtml(n) {
 
 export function buildVpsGridHtml() {
   return VPS_SLOTS.map((_, i) => buildVpsSlotHtml(i + 1)).join('\n          ')
+}
+
+function buildDeckChannelHtml(n) {
+  const slot = `vps${n}`
+  return `<div class="deck-channel" data-slot="${slot}">
+            <div class="ch-label">CH ${n}</div>
+            <div class="ch-vu" data-vu="${slot}"><div class="ch-vu-fill"></div></div>
+            <div class="ch-mini" data-poll-label="${slot}">—</div>
+            <div class="ch-toggles">
+              <label class="deck-switch" title="Slot in fleet loop"><input type="checkbox" data-ch-enabled="${slot}" checked><span class="deck-switch-pill"></span>Loop</label>
+              <label class="deck-switch" title="Push ingest to terminal"><input type="checkbox" data-ch-push="${slot}" checked><span class="deck-switch-pill"></span>Push</label>
+            </div>
+            <input class="ch-note" type="text" maxlength="120" placeholder="Maint note" data-ch-note="${slot}">
+            <div class="ch-btns">
+              <button type="button" class="deck-btn" data-cmd="fetchOnce" data-slot="${slot}">Fetch</button>
+              <button type="button" class="deck-btn" data-cmd="disengage" data-slot="${slot}">Pause</button>
+              <button type="button" class="deck-btn accent" data-cmd="resume" data-slot="${slot}">Resume</button>
+            </div>
+          </div>`
+}
+
+function buildCarRadioHtml() {
+  return `<div class="car-radio" id="carRadio">
+          <div class="car-radio-bezel">
+            <div class="car-radio-brand">ODDSLOCKER</div>
+            <div class="car-radio-mode-lamp" id="radioModeLamp"></div>
+            <div class="car-radio-screens">
+              <div class="radio-screen-block">
+                <div class="radio-screen-label">NEXT IN</div>
+                <div class="radio-screen recess" id="radioCountdownScreen">
+                  <div class="seg-display" id="radioCountdownSeg" data-seg="----"></div>
+                </div>
+              </div>
+              <div class="radio-screen-block">
+                <div class="radio-screen-label">NEXT VPS</div>
+                <div class="radio-screen recess" id="radioVpsScreen">
+                  <div class="seg-display" id="radioVpsSeg" data-seg="--"></div>
+                </div>
+              </div>
+              <div class="radio-screen-block radio-screen-mode">
+                <div class="radio-screen-label">MODE</div>
+                <div class="radio-screen recess small" id="radioModeScreen">
+                  <div class="seg-display seg-display-sm" id="radioModeSeg" data-seg="MAN"></div>
+                </div>
+              </div>
+            </div>
+            <div class="car-radio-orchestration">
+              <label class="deck-switch orchestration-switch" title="When ON, deck schedules remote scraper polls. When OFF, VPS scrapers run on their own.">
+                <input type="checkbox" id="deckRemoteOrchestration">
+                <span class="deck-switch-pill"></span>
+                <span class="orchestration-label">Deck orchestration</span>
+              </label>
+              <span class="orchestration-hint" id="orchestrationHint">Manual — scrapers poll on their own</span>
+            </div>
+          </div>
+        </div>`
+}
+
+function buildVpsControlDeckHtml() {
+  const channels = VPS_SLOTS.map((_, i) => buildDeckChannelHtml(i + 1)).join('\n          ')
+  return `<div class="control-deck" id="controlDeck">
+      <div class="control-deck-inner">
+        <div class="deck-header">
+          <span class="deck-led" id="deckFleetLed"></span>
+          <span class="deck-title">Fleet Control Station</span>
+          <span class="deck-meta" id="deckMeta">rev — · sync —</span>
+        </div>
+        ${buildCarRadioHtml()}
+        <div class="deck-master">
+          <div class="deck-master-panel">
+            <div class="deck-fader deck-remote-only">
+              <label>Poll interval</label>
+              <span class="deck-fader-val" id="deckPollVal">2.0s</span>
+              <input type="range" id="deckDefaultPoll" min="0.5" max="120" step="0.5" value="2">
+            </div>
+            <div class="deck-fader deck-remote-only">
+              <label>VPS stagger</label>
+              <span class="deck-fader-val" id="deckStaggerVal">0.5s</span>
+              <input type="range" id="deckStagger" min="0" max="30" step="0.5" value="0.5">
+            </div>
+            <div class="deck-fader deck-remote-only">
+              <label>Config poll</label>
+              <span class="deck-fader-val" id="deckConfigPollVal">5s</span>
+              <input type="range" id="deckConfigPoll" min="3" max="120" step="1" value="5">
+            </div>
+            <div class="deck-toggle-row">
+              <label class="deck-switch danger" title="Master fleet kill switch"><input type="checkbox" id="deckFleetEnabled" checked><span class="deck-switch-pill"></span>Fleet live</label>
+              <label class="deck-switch deck-remote-only" title="Auto-poll all adapters when push enabled"><input type="checkbox" id="deckAutoPoll"><span class="deck-switch-pill"></span>Auto poll</label>
+              <label class="deck-switch" title="Accept league watcher snapshots on ingest"><input type="checkbox" id="deckLeagueWatcher" checked><span class="deck-switch-pill"></span>League watcher</label>
+              <label class="deck-switch danger deck-remote-only" title="Each ingest replaces entire terminal feed"><input type="checkbox" id="deckReplaceAll"><span class="deck-switch-pill"></span>Replace all</label>
+            </div>
+            <div class="deck-actions">
+              <button type="button" class="deck-btn accent deck-remote-only" id="deckFetchAll">Fetch all VPS</button>
+              <button type="button" class="deck-btn" id="deckResetDefaults">Reset defaults</button>
+            </div>
+          </div>
+          <div class="deck-summary" id="deckSummary">
+            <div class="deck-stat"><strong id="deckActiveCount">0</strong> / 10 channels pushing</div>
+            <div class="deck-stat">Fleet: <strong id="deckFleetState">—</strong></div>
+            <div class="deck-stat">Default poll: <strong id="deckSummaryPoll">—</strong></div>
+            <div class="deck-stat">Stagger: <strong id="deckSummaryStagger">—</strong></div>
+          </div>
+        </div>
+        <div class="deck-channels" id="deckChannels">
+          ${channels}
+        </div>
+      </div>
+    </div>`
 }
 
 function buildNavHtml(activePage) {
@@ -351,6 +461,466 @@ function dashboardStyles() {
         .foot { margin-top: 1rem; font-size: 0.8rem; color: var(--muted); }
         .foot a { color: var(--accent); text-decoration: none; }
         .foot a:hover { text-decoration: underline; }
+        .control-deck {
+          --deck-metal: #1a1a22;
+          --deck-glow: #22d3ee;
+          --deck-magenta: #e879f9;
+          --deck-amber: #fbbf24;
+          margin-bottom: 1.75rem;
+          border-radius: 14px;
+          padding: 1px;
+          background: linear-gradient(145deg, rgba(34,211,238,0.35), rgba(232,121,249,0.2) 40%, rgba(251,191,36,0.15) 100%);
+          box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+        .control-deck-inner {
+          background:
+            radial-gradient(ellipse 120% 80% at 50% -20%, rgba(34,211,238,0.08), transparent 55%),
+            linear-gradient(180deg, #14141a 0%, #0e0e13 100%);
+          border-radius: 13px;
+          padding: 1rem 1.1rem 1.15rem;
+        }
+        .deck-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+          padding-bottom: 0.65rem;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .deck-title {
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: #a5f3fc;
+        }
+        .deck-led {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--deck-glow);
+          box-shadow: 0 0 12px var(--deck-glow);
+          animation: green-blink 2.4s ease-in-out infinite;
+        }
+        .deck-led.off { background: #52525b; box-shadow: none; animation: none; }
+        .deck-meta {
+          margin-left: auto;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.62rem;
+          color: var(--muted);
+        }
+        .deck-master {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+        @media (max-width: 900px) { .deck-master { grid-template-columns: 1fr; } }
+        .deck-master-panel {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+          gap: 0.75rem;
+          padding: 0.85rem;
+          border-radius: 10px;
+          background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.2));
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        .deck-fader {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          min-width: 0;
+        }
+        .deck-fader label {
+          font-size: 0.62rem;
+          font-weight: 500;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .deck-fader-val {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.72rem;
+          color: var(--deck-glow);
+        }
+        .deck-fader input[type=range] {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          height: 6px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #27272a, #3f3f46);
+          outline: none;
+        }
+        .deck-fader input[type=range]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 14px;
+          height: 22px;
+          border-radius: 3px;
+          background: linear-gradient(180deg, #e4e4e7, #a1a1aa);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
+          cursor: grab;
+        }
+        .deck-toggle-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem 0.85rem;
+          align-items: center;
+          grid-column: 1 / -1;
+          padding-top: 0.25rem;
+        }
+        .deck-switch {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.68rem;
+          color: var(--muted);
+          cursor: pointer;
+          user-select: none;
+        }
+        .deck-switch input { display: none; }
+        .deck-switch-pill {
+          width: 34px;
+          height: 18px;
+          border-radius: 999px;
+          background: #27272a;
+          border: 1px solid #3f3f46;
+          position: relative;
+          transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        .deck-switch-pill::after {
+          content: '';
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #71717a;
+          transition: transform 0.2s, background 0.2s;
+        }
+        .deck-switch input:checked + .deck-switch-pill {
+          background: rgba(34,211,238,0.15);
+          border-color: rgba(34,211,238,0.55);
+          box-shadow: 0 0 10px rgba(34,211,238,0.25);
+        }
+        .deck-switch input:checked + .deck-switch-pill::after {
+          transform: translateX(16px);
+          background: var(--deck-glow);
+        }
+        .deck-switch.danger input:checked + .deck-switch-pill {
+          background: rgba(248,113,113,0.12);
+          border-color: rgba(248,113,113,0.5);
+          box-shadow: 0 0 10px rgba(248,113,113,0.2);
+        }
+        .deck-switch.danger input:checked + .deck-switch-pill::after { background: #f87171; }
+        .deck-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.45rem;
+          grid-column: 1 / -1;
+        }
+        .deck-btn {
+          font-family: inherit;
+          font-size: 0.68rem;
+          font-weight: 500;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          padding: 0.4rem 0.75rem;
+          border-radius: 6px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.15));
+          color: var(--text);
+          cursor: pointer;
+          transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
+        }
+        .deck-btn:hover {
+          border-color: rgba(34,211,238,0.45);
+          color: #a5f3fc;
+          box-shadow: 0 0 14px rgba(34,211,238,0.12);
+        }
+        .deck-btn.accent {
+          border-color: rgba(232,121,249,0.4);
+          color: #f5d0fe;
+        }
+        .deck-btn.accent:hover { box-shadow: 0 0 14px rgba(232,121,249,0.15); }
+        .deck-summary {
+          min-width: 10rem;
+          padding: 0.85rem;
+          border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.05);
+          background: rgba(0,0,0,0.25);
+          font-size: 0.68rem;
+          color: var(--muted);
+        }
+        .deck-summary strong { color: var(--text); font-weight: 500; }
+        .deck-summary .deck-stat { margin-bottom: 0.35rem; }
+        .deck-channels {
+          display: grid;
+          grid-template-columns: repeat(10, 1fr);
+          gap: 0.5rem;
+          overflow-x: auto;
+          padding-bottom: 0.25rem;
+        }
+        @media (max-width: 1200px) {
+          .deck-channels { grid-template-columns: repeat(5, minmax(5.5rem, 1fr)); }
+        }
+        .deck-channel {
+          min-width: 5.25rem;
+          padding: 0.55rem 0.45rem 0.65rem;
+          border-radius: 8px;
+          background: linear-gradient(180deg, #1c1c24, #121218);
+          border: 1px solid rgba(255,255,255,0.05);
+          text-align: center;
+          transition: border-color 0.2s, opacity 0.2s, box-shadow 0.2s;
+        }
+        .deck-channel.disabled {
+          opacity: 0.45;
+          border-color: rgba(248,113,113,0.25);
+        }
+        .deck-channel.active-push {
+          border-color: rgba(34,211,238,0.35);
+          box-shadow: 0 0 16px rgba(34,211,238,0.08);
+        }
+        .deck-channel .ch-label {
+          font-size: 0.58rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--muted);
+          margin-bottom: 0.35rem;
+        }
+        .deck-channel .ch-vu {
+          height: 48px;
+          width: 100%;
+          margin: 0 auto 0.45rem;
+          border-radius: 4px;
+          background: #0a0a0e;
+          border: 1px solid rgba(255,255,255,0.04);
+          position: relative;
+          overflow: hidden;
+        }
+        .deck-channel .ch-vu-fill {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 0%;
+          background: linear-gradient(0deg, #0891b2, #22d3ee 60%, #a5f3fc);
+          transition: height 0.35s ease-out;
+          box-shadow: 0 0 12px rgba(34,211,238,0.35);
+        }
+        .deck-channel .ch-vu.peak .ch-vu-fill {
+          background: linear-gradient(0deg, #b45309, var(--deck-amber) 55%, #fde68a);
+          box-shadow: 0 0 12px rgba(251,191,36,0.35);
+        }
+        .deck-channel .ch-mini {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.55rem;
+          color: var(--muted);
+          margin-bottom: 0.4rem;
+        }
+        .deck-channel .ch-toggles {
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+          margin-bottom: 0.4rem;
+          align-items: center;
+        }
+        .deck-channel .ch-toggles .deck-switch { font-size: 0.58rem; }
+        .deck-channel .ch-note {
+          width: 100%;
+          font-size: 0.58rem;
+          padding: 0.25rem 0.3rem;
+          border-radius: 4px;
+          border: 1px solid rgba(255,255,255,0.06);
+          background: rgba(0,0,0,0.35);
+          color: var(--text);
+          margin-bottom: 0.4rem;
+        }
+        .deck-channel .ch-note::placeholder { color: #52525b; }
+        .deck-channel .ch-btns {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .deck-channel .ch-btns .deck-btn {
+          font-size: 0.55rem;
+          padding: 0.28rem 0.35rem;
+          width: 100%;
+        }
+        .vps-slot.maintenance .vps-slot-inner {
+          opacity: 0.55;
+          filter: grayscale(0.35);
+        }
+        .vps-slot.maintenance::after {
+          content: 'MAINT';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(-12deg);
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          color: rgba(248,113,113,0.75);
+          border: 1px solid rgba(248,113,113,0.45);
+          padding: 0.15rem 0.45rem;
+          border-radius: 4px;
+          pointer-events: none;
+          z-index: 2;
+        }
+        .vps-slot { position: relative; }
+        .car-radio {
+          margin-bottom: 1rem;
+        }
+        .car-radio-bezel {
+          border-radius: 12px;
+          padding: 0.85rem 1rem 0.95rem;
+          background:
+            linear-gradient(180deg, #3d3d45 0%, #25252c 18%, #1a1a20 55%, #121218 100%);
+          border: 1px solid #4a4a54;
+          box-shadow:
+            inset 0 2px 4px rgba(255,255,255,0.12),
+            inset 0 -3px 8px rgba(0,0,0,0.55),
+            0 8px 24px rgba(0,0,0,0.35);
+          position: relative;
+        }
+        .car-radio-bezel::before {
+          content: '';
+          position: absolute;
+          inset: 4px;
+          border-radius: 9px;
+          border: 1px solid rgba(0,0,0,0.35);
+          pointer-events: none;
+        }
+        .car-radio-brand {
+          font-size: 0.55rem;
+          font-weight: 700;
+          letter-spacing: 0.28em;
+          color: #9ca3af;
+          text-shadow: 0 1px 0 rgba(255,255,255,0.15);
+          margin-bottom: 0.55rem;
+        }
+        .car-radio-mode-lamp {
+          position: absolute;
+          top: 0.85rem;
+          right: 1rem;
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #f59e0b;
+          box-shadow: 0 0 10px rgba(245,158,11,0.65);
+        }
+        .car-radio-mode-lamp.orch {
+          background: #22d3ee;
+          box-shadow: 0 0 12px rgba(34,211,238,0.7);
+        }
+        .car-radio-screens {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.85rem 1.25rem;
+          align-items: flex-end;
+          margin-bottom: 0.75rem;
+        }
+        .radio-screen-block { min-width: 0; }
+        .radio-screen-label {
+          font-size: 0.52rem;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          color: #6b7280;
+          margin-bottom: 0.3rem;
+          text-transform: uppercase;
+        }
+        .radio-screen.recess {
+          background: linear-gradient(180deg, #060608 0%, #0c0c10 100%);
+          border-radius: 6px;
+          padding: 0.45rem 0.55rem;
+          border: 2px inset #1f1f28;
+          box-shadow: inset 0 3px 10px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .radio-screen.recess.small { padding: 0.35rem 0.45rem; }
+        .seg-display {
+          display: flex;
+          gap: 0.22rem;
+          align-items: center;
+          min-height: 2.1rem;
+        }
+        .seg-display-sm { min-height: 1.55rem; gap: 0.12rem; }
+        .seg-display-sm .seg-digit { width: 0.85rem; height: 1.35rem; }
+        .seg-display-sm .seg-digit .seg { border-radius: 1px; }
+        .seg-digit {
+          position: relative;
+          width: 1.15rem;
+          height: 1.85rem;
+          flex-shrink: 0;
+        }
+        .seg-digit .seg {
+          position: absolute;
+          background: rgba(251,191,36,0.08);
+          border-radius: 2px;
+          transition: background 0.12s, box-shadow 0.12s;
+        }
+        .seg-digit .seg.on {
+          background: #fbbf24;
+          box-shadow: 0 0 8px rgba(251,191,36,0.55), 0 0 2px rgba(255,255,255,0.3);
+        }
+        .seg-digit .seg-a { top: 0; left: 12%; right: 12%; height: 11%; }
+        .seg-digit .seg-b { top: 6%; right: 0; width: 11%; height: 42%; }
+        .seg-digit .seg-c { bottom: 6%; right: 0; width: 11%; height: 42%; }
+        .seg-digit .seg-d { bottom: 0; left: 12%; right: 12%; height: 11%; }
+        .seg-digit .seg-e { bottom: 6%; left: 0; width: 11%; height: 42%; }
+        .seg-digit .seg-f { top: 6%; left: 0; width: 11%; height: 42%; }
+        .seg-digit .seg-g { top: 46%; left: 12%; right: 12%; height: 10%; }
+        .seg-digit.seg-colon {
+          width: 0.35rem;
+        }
+        .seg-digit.seg-colon::before,
+        .seg-digit.seg-colon::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          width: 5px;
+          height: 5px;
+          margin-left: -2.5px;
+          border-radius: 50%;
+          background: rgba(251,191,36,0.12);
+        }
+        .seg-digit.seg-colon.on::before,
+        .seg-digit.seg-colon.on::after {
+          background: #fbbf24;
+          box-shadow: 0 0 6px rgba(251,191,36,0.5);
+        }
+        .seg-digit.seg-colon::before { top: 28%; }
+        .seg-digit.seg-colon::after { bottom: 28%; }
+        .seg-digit.seg-dash .seg-g.on { opacity: 1; }
+        .car-radio-orchestration {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.65rem 1rem;
+          padding-top: 0.55rem;
+          border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .orchestration-switch .orchestration-label {
+          font-size: 0.72rem;
+          font-weight: 500;
+          color: #d4d4d8;
+          letter-spacing: 0.02em;
+        }
+        .orchestration-hint {
+          font-size: 0.65rem;
+          color: #71717a;
+          font-style: italic;
+        }
+        .control-deck.manual-mode .deck-remote-only {
+          opacity: 0.38;
+          pointer-events: none;
+          filter: grayscale(0.4);
+        }
+        .control-deck.manual-mode .deck-channel .ch-btns .deck-btn:not([data-cmd="fetchOnce"]) {
+          opacity: 0.38;
+          pointer-events: none;
+        }
   `
 }
 
@@ -456,8 +1026,388 @@ function clientScript(pageId) {
   `
 }
 
+function vpsControlDeckScript() {
+  return `
+        let controlState = null
+        let controlRev = -1
+        let saveTimer = null
+        let controlDirty = false
+        let pendingPatch = {}
+        let vpsSourcesCache = null
+        let radioTickTimer = null
+        const SEG_CHARS = {
+          '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
+          '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg',
+          '-': 'g', ' ': '', 'A': 'abcefg', 'E': 'adefg', 'F': 'aefg', 'H': 'bcefg',
+          'L': 'def', 'M': 'abcef', 'N': 'abcefg', 'O': 'abcdef', 'R': 'abcefg',
+          'S': 'acdfg', 'U': 'bcdef'
+        }
+        function fmtSec(v) { return Number(v).toFixed(Number(v) % 1 ? 1 : 0) + 's' }
+        function renderSegDisplay(el, text) {
+          if (!el) return
+          const raw = String(text || '').toUpperCase().slice(0, 8)
+          el.innerHTML = ''
+          for (let i = 0; i < raw.length; i++) {
+            const ch = raw[i]
+            if (ch === ':') {
+              const colon = document.createElement('div')
+              colon.className = 'seg-digit seg-colon on'
+              el.appendChild(colon)
+              continue
+            }
+            const digit = document.createElement('div')
+            digit.className = 'seg-digit' + (ch === '-' ? ' seg-dash' : '')
+            const segs = SEG_CHARS[ch] || ''
+            for (const s of 'abcdefg') {
+              const seg = document.createElement('i')
+              seg.className = 'seg ' + s + (segs.includes(s) ? ' on' : '')
+              digit.appendChild(seg)
+            }
+            el.appendChild(digit)
+          }
+        }
+        function formatCountdownSeg(ms) {
+          if (ms == null || !Number.isFinite(ms)) return '----'
+          const totalSec = Math.max(0, Math.ceil(ms / 1000))
+          if (totalSec >= 3600) {
+            const h = Math.min(99, Math.floor(totalSec / 3600))
+            const m = Math.floor((totalSec % 3600) / 60)
+            return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0')
+          }
+          if (totalSec >= 60) {
+            const m = Math.floor(totalSec / 60)
+            const s = totalSec % 60
+            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
+          }
+          return String(totalSec).padStart(2, '0')
+        }
+        function formatVpsSeg(slot) {
+          if (!slot) return '--'
+          const n = Number(String(slot).replace('vps', ''))
+          if (!Number.isFinite(n) || n < 1) return '--'
+          return String(n).padStart(2, '0')
+        }
+        function computeManualSchedule(sources) {
+          if (!controlState || !sources) return { nextSlot: null, nextInMs: null }
+          const intervalMs = (controlState.global?.defaultPollIntervalSec || 2) * 1000
+          let bestAt = Infinity
+          let bestSlot = null
+          for (const slot of ${JSON.stringify(VPS_SLOTS)}) {
+            const st = sources[slot]
+            const lastSeen = st?.lastSeen ?? 0
+            if (!lastSeen) continue
+            const nextAt = lastSeen + intervalMs
+            if (nextAt < bestAt) { bestAt = nextAt; bestSlot = slot }
+          }
+          if (!bestSlot) return { nextSlot: null, nextInMs: null }
+          return { nextSlot: bestSlot, nextInMs: Math.max(0, bestAt - Date.now()) }
+        }
+        function computeOrchestrationScheduleClient() {
+          if (!controlState) return { nextSlot: null, nextInMs: null }
+          const g = controlState.global || {}
+          const sch = controlState.schedule
+          if (sch && sch.mode === 'orchestration' && sch.nextSlot) {
+            return { nextSlot: sch.nextSlot, nextInMs: sch.nextInMs }
+          }
+          if (!g.remoteOrchestration || !g.fleetEnabled || !g.autoPoll) {
+            return { nextSlot: null, nextInMs: null }
+          }
+          const now = Date.now()
+          const pollMs = (g.defaultPollIntervalSec || 2) * 1000
+          const staggerMs = (g.vpsStaggerSec || 0) * 1000
+          const epoch = g.scheduleEpoch || now
+          let bestAt = Infinity
+          let bestSlot = null
+          for (const slot of ${JSON.stringify(VPS_SLOTS)}) {
+            const st = controlState.slots?.[slot]
+            if (!st?.enabled || !st?.pushEnabled) continue
+            const n = Number(slot.replace('vps', ''))
+            const offset = Math.max(0, n - 1) * staggerMs
+            const elapsed = now - epoch - offset
+            const cycles = Math.floor(elapsed / pollMs)
+            let nextAt = epoch + offset + (cycles + 1) * pollMs
+            if (nextAt <= now) nextAt += pollMs
+            if (nextAt < bestAt) { bestAt = nextAt; bestSlot = slot }
+          }
+          return { nextSlot: bestSlot, nextInMs: bestSlot ? Math.max(0, bestAt - now) : null }
+        }
+        function updateCarRadioDisplay() {
+          const g = controlState?.global
+          const remote = !!g?.remoteOrchestration
+          const deck = document.getElementById('controlDeck')
+          const lamp = document.getElementById('radioModeLamp')
+          const hint = document.getElementById('orchestrationHint')
+          const modeSeg = document.getElementById('radioModeSeg')
+          const countdownSeg = document.getElementById('radioCountdownSeg')
+          const vpsSeg = document.getElementById('radioVpsSeg')
+          if (deck) deck.classList.toggle('manual-mode', !remote)
+          if (lamp) lamp.classList.toggle('orch', remote)
+          if (hint) {
+            hint.textContent = remote
+              ? 'Orchestration — deck schedules fleet polls'
+              : 'Manual — scrapers poll on their own; feed still listens'
+          }
+          renderSegDisplay(modeSeg, remote ? 'ORCH' : 'MAN')
+          let nextSlot = null
+          let nextInMs = null
+          if (remote) {
+            const sch = computeOrchestrationScheduleClient()
+            nextSlot = sch.nextSlot
+            nextInMs = sch.nextInMs
+            if (!g?.autoPoll || !g?.fleetEnabled) {
+              renderSegDisplay(countdownSeg, 'WAIT')
+              renderSegDisplay(vpsSeg, '--')
+              return
+            }
+          } else {
+            const sch = computeManualSchedule(vpsSourcesCache)
+            nextSlot = sch.nextSlot
+            nextInMs = sch.nextInMs
+          }
+          renderSegDisplay(countdownSeg, formatCountdownSeg(nextInMs))
+          renderSegDisplay(vpsSeg, formatVpsSeg(nextSlot))
+        }
+        function startRadioTick() {
+          if (radioTickTimer) return
+          function tick() {
+            updateCarRadioDisplay()
+            radioTickTimer = setTimeout(tick, 250)
+          }
+          tick()
+        }
+        function mergePatch(base, patch) {
+          const out = { ...base }
+          if (patch.global) out.global = { ...(out.global || {}), ...patch.global }
+          if (patch.slots) {
+            out.slots = { ...(out.slots || {}) }
+            for (const k of Object.keys(patch.slots)) {
+              out.slots[k] = { ...(out.slots[k] || {}), ...patch.slots[k] }
+            }
+          }
+          if (patch.command) out.command = patch.command
+          return out
+        }
+        function queueSave(patch) {
+          controlDirty = true
+          pendingPatch = mergePatch(pendingPatch, patch)
+          if (saveTimer) clearTimeout(saveTimer)
+          saveTimer = setTimeout(() => {
+            const toSend = pendingPatch
+            pendingPatch = {}
+            saveControlPatch(toSend)
+          }, 420)
+        }
+        async function saveControlPatch(patch) {
+          if (!patch) return
+          try {
+            const res = await fetch('/api/vps-control', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(patch)
+            })
+            if (!res.ok) throw new Error('save failed ' + res.status)
+            const data = await res.json()
+            applyControlState(data, true)
+            controlDirty = false
+          } catch (e) {
+            console.warn('[Control] save error', e)
+          }
+        }
+        async function sendCommand(slot, type) {
+          await saveControlPatch({ command: { slot, type } })
+        }
+        function applyControlToCards(slots) {
+          const remote = !!controlState?.global?.remoteOrchestration
+          document.querySelectorAll('.vps-slot').forEach(el => {
+            const slot = el.dataset.slot
+            const st = slots && slots[slot]
+            const maint = remote && st && !st.enabled
+            el.classList.toggle('maintenance', !!maint)
+          })
+        }
+        function applyChannelVu(sources) {
+          if (!sources) return
+          let maxN = 1
+          for (const slot of Object.keys(sources)) {
+            if (slot.startsWith('_')) continue
+            const n = sources[slot]?.n ?? 0
+            if (n > maxN) maxN = n
+          }
+          document.querySelectorAll('.deck-channel').forEach(ch => {
+            const slot = ch.dataset.slot
+            const st = sources[slot]
+            const n = st?.n ?? 0
+            const lastSeen = st?.lastSeen ?? 0
+            const ageSec = lastSeen ? (Date.now() - lastSeen) / 1000 : 9999
+            const pct = Math.min(100, Math.round((n / maxN) * 100))
+            const fill = ch.querySelector('.ch-vu-fill')
+            const vu = ch.querySelector('.ch-vu')
+            if (fill) fill.style.height = pct + '%'
+            if (vu) vu.classList.toggle('peak', ageSec < 30 && n > 0)
+            const slotCfg = controlState?.slots?.[slot]
+            const pollLabel = ch.querySelector('[data-poll-label="' + slot + '"]')
+            if (pollLabel && controlState) {
+              const custom = slotCfg?.pollIntervalSec
+              const eff = custom != null ? custom : controlState.global.defaultPollIntervalSec
+              pollLabel.textContent = (custom != null ? eff + 's*' : eff + 's')
+            }
+          })
+        }
+        function updateDeckSummary() {
+          if (!controlState) return
+          const g = controlState.global
+          const slots = controlState.slots || {}
+          let active = 0
+          for (const s of Object.keys(slots)) {
+            if (slots[s]?.enabled && slots[s]?.pushEnabled) active++
+          }
+          const fleetLed = document.getElementById('deckFleetLed')
+          const meta = document.getElementById('deckMeta')
+          const activeEl = document.getElementById('deckActiveCount')
+          const fleetState = document.getElementById('deckFleetState')
+          const sumPoll = document.getElementById('deckSummaryPoll')
+          const sumStag = document.getElementById('deckSummaryStagger')
+          if (fleetLed) fleetLed.classList.toggle('off', !g.fleetEnabled)
+          if (meta) meta.textContent = 'rev ' + controlState.rev + ' · ' + formatAgo(controlState.updatedAt)
+          if (activeEl) activeEl.textContent = String(active)
+          if (fleetState) fleetState.textContent = g.fleetEnabled
+            ? (g.remoteOrchestration ? 'ORCH' : 'MANUAL')
+            : 'HALTED'
+          if (sumPoll) sumPoll.textContent = fmtSec(g.defaultPollIntervalSec)
+          if (sumStag) sumStag.textContent = fmtSec(g.vpsStaggerSec)
+          document.querySelectorAll('.deck-channel').forEach(ch => {
+            const slot = ch.dataset.slot
+            const st = slots[slot]
+            if (!st) return
+            const on = g.fleetEnabled && st.enabled && st.pushEnabled
+            ch.classList.toggle('disabled', !st.enabled || !g.fleetEnabled)
+            ch.classList.toggle('active-push', !!on)
+          })
+        }
+        function bindControlInputs() {
+          const poll = document.getElementById('deckDefaultPoll')
+          const pollVal = document.getElementById('deckPollVal')
+          const stagger = document.getElementById('deckStagger')
+          const staggerVal = document.getElementById('deckStaggerVal')
+          const configPoll = document.getElementById('deckConfigPoll')
+          const configPollVal = document.getElementById('deckConfigPollVal')
+          const fleet = document.getElementById('deckFleetEnabled')
+          const autoPoll = document.getElementById('deckAutoPoll')
+          const lw = document.getElementById('deckLeagueWatcher')
+          const replaceAll = document.getElementById('deckReplaceAll')
+          const remoteOrch = document.getElementById('deckRemoteOrchestration')
+          if (poll) poll.addEventListener('input', () => {
+            if (pollVal) pollVal.textContent = fmtSec(poll.value)
+            queueSave({ global: { defaultPollIntervalSec: Number(poll.value) } })
+          })
+          if (stagger) stagger.addEventListener('input', () => {
+            if (staggerVal) staggerVal.textContent = fmtSec(stagger.value)
+            queueSave({ global: { vpsStaggerSec: Number(stagger.value) } })
+          })
+          if (configPoll) configPoll.addEventListener('input', () => {
+            if (configPollVal) configPollVal.textContent = fmtSec(configPoll.value)
+            queueSave({ global: { configPollSec: Number(configPoll.value) } })
+          })
+          if (fleet) fleet.addEventListener('change', () => queueSave({ global: { fleetEnabled: fleet.checked } }))
+          if (autoPoll) autoPoll.addEventListener('change', () => queueSave({ global: { autoPoll: autoPoll.checked } }))
+          if (lw) lw.addEventListener('change', () => queueSave({ global: { leagueWatcherPush: lw.checked } }))
+          if (replaceAll) replaceAll.addEventListener('change', () => queueSave({ global: { replaceAllOnIngest: replaceAll.checked } }))
+          if (remoteOrch) remoteOrch.addEventListener('change', () => {
+            queueSave({ global: { remoteOrchestration: remoteOrch.checked } })
+            updateCarRadioDisplay()
+          })
+          document.querySelectorAll('[data-ch-enabled]').forEach(inp => {
+            inp.addEventListener('change', () => {
+              const slot = inp.dataset.chEnabled
+              queueSave({ slots: { [slot]: { enabled: inp.checked } } })
+            })
+          })
+          document.querySelectorAll('[data-ch-push]').forEach(inp => {
+            inp.addEventListener('change', () => {
+              const slot = inp.dataset.chPush
+              queueSave({ slots: { [slot]: { pushEnabled: inp.checked } } })
+            })
+          })
+          document.querySelectorAll('[data-ch-note]').forEach(inp => {
+            inp.addEventListener('change', () => {
+              const slot = inp.dataset.chNote
+              queueSave({ slots: { [slot]: { maintenanceNote: inp.value } } })
+            })
+          })
+          document.querySelectorAll('[data-cmd]').forEach(btn => {
+            btn.addEventListener('click', () => sendCommand(btn.dataset.slot, btn.dataset.cmd))
+          })
+          const fetchAll = document.getElementById('deckFetchAll')
+          if (fetchAll) fetchAll.addEventListener('click', async () => {
+            for (const slot of ${JSON.stringify(VPS_SLOTS)}) {
+              await sendCommand(slot, 'fetchOnce')
+            }
+          })
+          const resetBtn = document.getElementById('deckResetDefaults')
+          if (resetBtn) resetBtn.addEventListener('click', async () => {
+            if (!confirm('Reset all fleet control settings to defaults?')) return
+            try {
+              const res = await fetch('/api/vps-control/reset', { method: 'POST' })
+              if (!res.ok) throw new Error('reset failed')
+              applyControlState(await res.json(), true)
+            } catch (e) { console.warn('[Control] reset error', e) }
+          })
+        }
+        function applyControlState(state, fromSave) {
+          if (!state || typeof state !== 'object') return
+          if (!fromSave && state.rev <= controlRev) return
+          controlRev = state.rev
+          controlState = state
+          const g = state.global || {}
+          const poll = document.getElementById('deckDefaultPoll')
+          const stagger = document.getElementById('deckStagger')
+          const configPoll = document.getElementById('deckConfigPoll')
+          const pollVal = document.getElementById('deckPollVal')
+          const staggerVal = document.getElementById('deckStaggerVal')
+          const configPollVal = document.getElementById('deckConfigPollVal')
+          if (poll && !controlDirty) { poll.value = g.defaultPollIntervalSec; if (pollVal) pollVal.textContent = fmtSec(g.defaultPollIntervalSec) }
+          if (stagger && !controlDirty) { stagger.value = g.vpsStaggerSec; if (staggerVal) staggerVal.textContent = fmtSec(g.vpsStaggerSec) }
+          if (configPoll && !controlDirty) { configPoll.value = g.configPollSec; if (configPollVal) configPollVal.textContent = fmtSec(g.configPollSec) }
+          const fleet = document.getElementById('deckFleetEnabled')
+          const autoPoll = document.getElementById('deckAutoPoll')
+          const lw = document.getElementById('deckLeagueWatcher')
+          const replaceAll = document.getElementById('deckReplaceAll')
+          const remoteOrch = document.getElementById('deckRemoteOrchestration')
+          if (fleet && !controlDirty) fleet.checked = !!g.fleetEnabled
+          if (autoPoll && !controlDirty) autoPoll.checked = !!g.autoPoll
+          if (lw && !controlDirty) lw.checked = g.leagueWatcherPush !== false
+          if (replaceAll && !controlDirty) replaceAll.checked = !!g.replaceAllOnIngest
+          if (remoteOrch && !controlDirty) remoteOrch.checked = !!g.remoteOrchestration
+          const slots = state.slots || {}
+          for (const slot of Object.keys(slots)) {
+            const st = slots[slot]
+            const en = document.querySelector('[data-ch-enabled="' + slot + '"]')
+            const push = document.querySelector('[data-ch-push="' + slot + '"]')
+            const note = document.querySelector('[data-ch-note="' + slot + '"]')
+            if (en && !controlDirty) en.checked = !!st.enabled
+            if (push && !controlDirty) push.checked = !!st.pushEnabled
+            if (note && !controlDirty) note.value = st.maintenanceNote || ''
+          }
+          applyControlToCards(slots)
+          updateDeckSummary()
+          updateCarRadioDisplay()
+        }
+        async function loadControlState() {
+          try {
+            const res = await fetch('/api/vps-control')
+            if (!res.ok) return
+            applyControlState(await res.json(), true)
+          } catch (e) { console.warn('[Control] load error', e) }
+        }
+        bindControlInputs()
+        loadControlState()
+        startRadioTick()
+  `
+}
+
 function vpsPageScript() {
   return `
+        ${vpsControlDeckScript()}
         function heatLabelForLevel(level, cooldown) {
           if (cooldown) return { text: 'Cooldown', cls: 'cooldown' }
           if (level < 0.15) return { text: 'Cool', cls: 'cool' }
@@ -630,7 +1580,13 @@ function vpsPageScript() {
           let msg
           try { msg = JSON.parse(e.data) } catch (_) { return }
           if (msg.type !== 'odds') return
-          if (msg.sources) updateVpsSlots(msg.sources)
+          if (msg.sources) {
+            vpsSourcesCache = msg.sources
+            updateVpsSlots(msg.sources)
+            applyChannelVu(msg.sources)
+          }
+          if (msg.vpsControl) applyControlState(msg.vpsControl, false)
+          else updateCarRadioDisplay()
         }
   `
 }
@@ -867,6 +1823,7 @@ export function renderDashboardPage(res, opts) {
 
 export function vpsPageContent() {
   return `
+    ${buildVpsControlDeckHtml()}
     <div class="section-title">VPS status <span class="lw-sub">(heat border: demo levels until scrapers report heat)</span></div>
     <div class="vps-grid" id="vpsGrid">
       ${buildVpsGridHtml()}
