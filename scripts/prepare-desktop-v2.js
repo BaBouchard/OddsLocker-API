@@ -48,6 +48,13 @@ for (const f of ['schema.js', 'bovada-league-watcher.js', 'league-watcher-cache.
   if (fs.existsSync(p)) fs.copyFileSync(p, path.join(vendorSrc, f))
 }
 
+// Packaged scraper-src sits outside odds-engine, so Node treats .js as CommonJS
+// unless this folder declares itself a module. Adapters use import.
+fs.writeFileSync(
+  path.join(vendorSrc, 'package.json'),
+  JSON.stringify({ name: 'oddslocker-scraper-src', private: true, type: 'module' }, null, 2) + '\n'
+)
+
 const bundledDir = path.join(v2, 'bundled')
 fs.mkdirSync(bundledDir, { recursive: true })
 const legacyBundled = path.join(root, 'desktop', 'bundled', 'default.env')
