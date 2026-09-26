@@ -24,10 +24,10 @@ export function stopScheduler() {
 
 function scheduleNext() {
   if (timer) clearTimeout(timer)
-  const s = getState()
-  const ms = Math.max(1000, Number(s.fleet.pollIntervalMs) || 5000)
-  timer = setTimeout(async () => {
+  const tick = async () => {
     const fleet = getState().fleet
+    const ms = Math.max(1000, Number(fleet.pollIntervalMs) || 5000)
+    const started = Date.now()
     if (fleet.autoPoll && fleet.fleetEnabled) {
       try {
         await runPollSession()
@@ -35,8 +35,11 @@ function scheduleNext() {
         console.warn('[Engine] Session error:', e.message)
       }
     }
-    scheduleNext()
-  }, ms)
+    const wait = Math.max(0, ms - (Date.now() - started))
+    timer = setTimeout(tick, wait)
+  }
+  const ms = Math.max(1000, Number(getState().fleet.pollIntervalMs) || 5000)
+  timer = setTimeout(tick, ms)
 }
 
 export async function runPollSession() {
@@ -119,7 +122,7 @@ export async function runPollSession() {
   })
 
   if (getState().fleet.webhookEnabled) {
-    await pushWebhook(snapshot)
+    pushWebhook(snapshot)
   }
 
   onSessionComplete?.(getFullSnapshot())

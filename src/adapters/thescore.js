@@ -174,7 +174,7 @@ export class TheScoreAdapter extends BaseAdapter {
     this._leagueKey = leagueKey
     this._running = true
     this._autoPoll = false
-    this._tick()
+    if (!this.skipStartupFetch) this._tick()
   }
 
   stop() {
@@ -266,25 +266,23 @@ export class TheScoreAdapter extends BaseAdapter {
     const debugPath = path.join(process.cwd(), 'debug-thescore-response.json')
 
     try {
-      const allEntries = []
-      let debugged = false
-      for (let i = 0; i < sectionUrls.length; i++) {
-        const { slug, url } = sectionUrls[i]
-        if (i > 0) await new Promise((r) => setTimeout(r, 200))
-        try {
-          const entries = await this._fetchSection(slug, url, {
-            sportsbook,
-            baseUrl,
-            shouldDebug,
-            debugPath,
-            debugAll: shouldDebug && !debugged
-          })
-          if (shouldDebug && !debugged) debugged = true
-          allEntries.push(...entries)
-        } catch (e) {
-          console.warn('[LiveOdds] The Score Bet', slug, 'fetch error:', e.message)
-        }
-      }
+      const settled = await Promise.all(
+        sectionUrls.map(async ({ slug, url }) => {
+          try {
+            return await this._fetchSection(slug, url, {
+              sportsbook,
+              baseUrl,
+              shouldDebug,
+              debugPath,
+              debugAll: false
+            })
+          } catch (e) {
+            console.warn('[LiveOdds] The Score Bet', slug, 'fetch error:', e.message)
+            return []
+          }
+        })
+      )
+      const allEntries = settled.flat()
       this._onOdds(allEntries, { pollRequests: sectionUrls.length, fromFetchOnce: !!fromFetchOnce })
     } catch (e) {
       console.warn('[LiveOdds] The Score Bet fetch error:', e.message)

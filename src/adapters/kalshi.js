@@ -178,7 +178,7 @@ export class KalshiAdapter extends BaseAdapter {
     this._leagueKey = leagueKey
     this._running = true
     this._autoPoll = false
-    this._tick()
+    if (!this.skipStartupFetch) this._tick()
   }
 
   stop() {
@@ -216,7 +216,7 @@ export class KalshiAdapter extends BaseAdapter {
       if (cursor) params.set('cursor', cursor)
       const url = `${base}/events?${params}`
       const res = await fetch(url, {
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(8000),
         headers: { Accept: 'application/json' }
       })
       const text = await res.text()
@@ -359,18 +359,19 @@ export class KalshiAdapter extends BaseAdapter {
     const seriesTickers = getKalshiSeriesTickers(this.config)
 
     try {
-      const allEntries = []
-      let pollRequests = 0
-
-      for (let i = 0; i < seriesTickers.length; i++) {
-        const seriesTicker = seriesTickers[i]
-        if (i > 0) {
-          await new Promise((r) => setTimeout(r, Number(this.config.seriesDelayMs || process.env.KALSHI_SERIES_DELAY_MS) || 300))
-        }
-        const events = await this.fetchSeriesEvents(seriesTicker)
-        pollRequests++
-        allEntries.push(...this.buildEntries(events, seriesTicker, { sportsbook, baseUrl }))
-      }
+      const seriesResults = await Promise.all(
+        seriesTickers.map(async (seriesTicker) => {
+          try {
+            const events = await this.fetchSeriesEvents(seriesTicker)
+            return this.buildEntries(events, seriesTicker, { sportsbook, baseUrl })
+          } catch (e) {
+            console.warn('[LiveOdds] Kalshi', seriesTicker, e.message)
+            return []
+          }
+        })
+      )
+      const allEntries = seriesResults.flat()
+      const pollRequests = seriesTickers.length
 
       if (shouldDebug && fromFetchOnce) {
         const debugPath = path.join(process.cwd(), 'debug-kalshi-response.json')

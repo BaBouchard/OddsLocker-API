@@ -1,5 +1,3 @@
-import fs from 'fs'
-import path from 'path'
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
 
@@ -79,46 +77,39 @@ export class PointsBetAdapter extends BaseAdapter {
     }
     if (cookie) headers.Cookie = cookie
 
-    const allEntries = []
-    let debugged = false
-    for (let i = 0; i < sportUrls.length; i++) {
-      const { sport, url } = sportUrls[i]
-      if (i > 0) await new Promise((r) => setTimeout(r, 200))
-      try {
-        const res = await fetch(url, {
-          signal: AbortSignal.timeout(15000),
-          headers: { ...headers }
-        })
-        const text = await res.text()
-        const shouldDebug = !debugged && (process.env.DEBUG_POINTSBET === '1' || process.env.DEBUG_POINTSBET === 'true')
-        if (shouldDebug) {
-          debugged = true
-          const debugPath = path.join(process.cwd(), 'debug-pointsbet-response.json')
-          fs.writeFileSync(debugPath, JSON.stringify({ sport, url, status: res.status, statusText: res.statusText, bodyLength: text.length, body: text.slice(0, 5000) }, null, 2), 'utf8')
-          console.warn('[LiveOdds] PointsBet debug: wrote', debugPath)
-        }
-        if (!res.ok) {
-          console.warn('[LiveOdds] PointsBet', sport, res.status, res.statusText, text.slice(0, 150))
-          continue
-        }
-        let data
+    const settled = await Promise.all(
+      sportUrls.map(async ({ sport, url }) => {
         try {
-          data = text ? JSON.parse(text) : {}
+          const res = await fetch(url, {
+            signal: AbortSignal.timeout(8000),
+            headers: { ...headers }
+          })
+          const text = await res.text()
+          if (!res.ok) {
+            console.warn('[LiveOdds] PointsBet', sport, res.status, res.statusText, text.slice(0, 150))
+            return []
+          }
+          let data
+          try {
+            data = text ? JSON.parse(text) : {}
+          } catch {
+            console.warn('[LiveOdds] PointsBet', sport, 'non-JSON response')
+            return []
+          }
+          const entries = this.parseResponse(data, { sportsbook, sport, baseUrl })
+          if (entries.length === 0) {
+            const events = data.events || data.data?.events || data.results || []
+            const liveCount = Array.isArray(events) ? events.filter((e) => e.isLive === true).length : 0
+            console.warn('[LiveOdds] PointsBet', sport, '0 entries (events:', events.length, ', live:', liveCount, ')')
+          }
+          return entries
         } catch (e) {
-          console.warn('[LiveOdds] PointsBet', sport, 'non-JSON response')
-          continue
+          console.warn('[LiveOdds] PointsBet', sport, 'fetch error:', e.message)
+          return []
         }
-        const entries = this.parseResponse(data, { sportsbook, sport, baseUrl })
-        if (entries.length === 0) {
-          const events = data.events || data.data?.events || data.results || []
-          const liveCount = Array.isArray(events) ? events.filter((e) => e.isLive === true).length : 0
-          console.warn('[LiveOdds] PointsBet', sport, '0 entries (events:', events.length, ', live:', liveCount, ')')
-        }
-        allEntries.push(...entries)
-      } catch (e) {
-        console.warn('[LiveOdds] PointsBet', sport, 'fetch error:', e.message)
-      }
-    }
+      })
+    )
+    const allEntries = settled.flat()
 
     this._onOdds(allEntries, { pollRequests: sportUrls.length, fromFetchOnce: true })
   }

@@ -220,7 +220,7 @@ export class PolymarketAdapter extends BaseAdapter {
     this._leagueKey = leagueKey
     this._running = true
     this._autoPoll = false
-    this._tick()
+    if (!this.skipStartupFetch) this._tick()
   }
 
   stop() {
@@ -250,13 +250,12 @@ export class PolymarketAdapter extends BaseAdapter {
     const base = this.catalogUrl().split('?')[0].replace(/\/$/, '')
     const pageLimit = Number(this.config.pageLimit || process.env.POLYMARKET_PAGE_LIMIT) || 100
     const maxPages = Number(this.config.maxPages || process.env.POLYMARKET_MAX_PAGES) || 10
-    const all = []
 
-    for (let page = 0; page < maxPages; page++) {
+    const fetchPage = async (page) => {
       const offset = page * pageLimit
       const url = `${base}?live=true&active=true&closed=false&limit=${pageLimit}&offset=${offset}`
       const res = await fetch(url, {
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(8000),
         headers: { Accept: 'application/json' }
       })
       const text = await res.text()
@@ -269,11 +268,21 @@ export class PolymarketAdapter extends BaseAdapter {
       } catch {
         throw new Error('Gamma returned non-JSON')
       }
-      if (!Array.isArray(batch) || batch.length === 0) break
+      return Array.isArray(batch) ? batch : []
+    }
+
+    const first = await fetchPage(0)
+    if (first.length === 0 || first.length < pageLimit || maxPages < 2) return first
+
+    const rest = await Promise.all(
+      Array.from({ length: maxPages - 1 }, (_, i) => fetchPage(i + 1).catch(() => []))
+    )
+    const all = [...first]
+    for (const batch of rest) {
+      if (!batch.length) break
       all.push(...batch)
       if (batch.length < pageLimit) break
     }
-
     return all
   }
 
@@ -283,38 +292,43 @@ export class PolymarketAdapter extends BaseAdapter {
     const url = this.booksUrl()
     const askByToken = {}
 
+    const chunks = []
     for (let i = 0; i < tokenIds.length; i += BOOK_BATCH_SIZE) {
-      const chunk = tokenIds.slice(i, i + BOOK_BATCH_SIZE)
-      const body = JSON.stringify(chunk.map((token_id) => ({ token_id })))
-      const res = await fetch(url, {
-        method: 'POST',
-        signal: AbortSignal.timeout(30000),
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          Origin: 'https://polymarket.com',
-          Referer: 'https://polymarket.com/'
-        },
-        body
-      })
-      const text = await res.text()
-      if (!res.ok) {
-        throw new Error(`CLOB books ${res.status}: ${text.slice(0, 200)}`)
-      }
-      let books
-      try {
-        books = text ? JSON.parse(text) : []
-      } catch {
-        throw new Error('CLOB books returned non-JSON')
-      }
-      if (!Array.isArray(books)) continue
-      for (const book of books) {
-        const top = extractTopAsk(book)
-        if (!top) continue
-        const tokenId = book.asset_id ?? book.token_id
-        if (tokenId != null) askByToken[String(tokenId)] = top
-      }
+      chunks.push(tokenIds.slice(i, i + BOOK_BATCH_SIZE))
     }
+    await Promise.all(
+      chunks.map(async (chunk) => {
+        const body = JSON.stringify(chunk.map((token_id) => ({ token_id })))
+        const res = await fetch(url, {
+          method: 'POST',
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Origin: 'https://polymarket.com',
+            Referer: 'https://polymarket.com/'
+          },
+          body
+        })
+        const text = await res.text()
+        if (!res.ok) {
+          throw new Error(`CLOB books ${res.status}: ${text.slice(0, 200)}`)
+        }
+        let books
+        try {
+          books = text ? JSON.parse(text) : []
+        } catch {
+          throw new Error('CLOB books returned non-JSON')
+        }
+        if (!Array.isArray(books)) return
+        for (const book of books) {
+          const top = extractTopAsk(book)
+          if (!top) continue
+          const tokenId = book.asset_id ?? book.token_id
+          if (tokenId != null) askByToken[String(tokenId)] = top
+        }
+      })
+    )
 
     return askByToken
   }

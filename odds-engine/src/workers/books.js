@@ -217,6 +217,7 @@ export async function getAdapter(bookId) {
   }
 
   const adapter = new Adapter(cfg.config)
+  adapter.skipStartupFetch = true
   const leagueKey = process.env.LEAGUE_KEY || 'betrivers_live'
   let lastEntries = []
   let lastMeta = {}

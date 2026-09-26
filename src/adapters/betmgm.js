@@ -53,7 +53,7 @@ export class BetMGMAdapter extends BaseAdapter {
     this._leagueKey = leagueKey
     this._running = true
     this._autoPoll = false
-    this._tick()
+    if (!this.skipStartupFetch) this._tick()
   }
 
   stop() {

@@ -275,7 +275,7 @@ export class PollAdapter extends BaseAdapter {
     this._leagueKey = leagueKey
     this._running = true
     this._autoPoll = false
-    await this._tick()
+    if (!this.skipStartupFetch) await this._tick()
   }
   stop() {
     super.stop()

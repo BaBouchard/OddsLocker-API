@@ -33,24 +33,29 @@ export async function runChannelBatch({ batch, useProxy = false }) {
   let proxyError = ''
 
   const runBooks = async () => {
-    for (const bookId of toRun) {
-      try {
-        const wrapped = await getAdapter(bookId)
-        if (!wrapped) {
-          errors.push({ book: bookId, error: 'Adapter not available' })
-          continue
+    const settled = await Promise.all(
+      toRun.map(async (bookId) => {
+        try {
+          const wrapped = await getAdapter(bookId)
+          if (!wrapped) return { bookId, error: 'Adapter not available' }
+          const { entries: bookEntries, meta } = await wrapped.fetchOnce()
+          return { bookId, entries: bookEntries, meta }
+        } catch (e) {
+          return { bookId, error: e.message || String(e) }
         }
-        const { entries: bookEntries, meta } = await wrapped.fetchOnce()
-        if (Array.isArray(bookEntries)) entries.push(...bookEntries)
-        if (meta?.leagueWatcher) leagueWatcher = meta.leagueWatcher
-      } catch (e) {
-        const msg = e.message || String(e)
-        errors.push({ book: bookId, error: msg })
-        if (/403|407|ECONNREFUSED|ETIMEDOUT|proxy|tunnel|CONNECT/i.test(msg)) {
+      })
+    )
+    for (const row of settled) {
+      if (row.error) {
+        errors.push({ book: row.bookId, error: row.error })
+        if (/403|407|ECONNREFUSED|ETIMEDOUT|proxy|tunnel|CONNECT/i.test(row.error)) {
           proxyFailed = true
-          proxyError = msg
+          proxyError = row.error
         }
+        continue
       }
+      if (Array.isArray(row.entries)) entries.push(...row.entries)
+      if (row.meta?.leagueWatcher) leagueWatcher = row.meta.leagueWatcher
     }
   }
 
