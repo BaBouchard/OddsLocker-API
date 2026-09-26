@@ -50,20 +50,22 @@ export function pickColdestChannels(need) {
   return pool.slice(0, need)
 }
 
-export function bumpChannelHeat(id, ok) {
+export function bumpChannelHeat(id, ok, error = '') {
   patchState((s) => {
     const ch = s.channels.find((c) => c.id === id)
     if (!ch) return
     ch.lastUsedAt = Date.now()
     ch.status = 'idle'
     ch.currentProxyId = null
+    const errText = String(error || '').slice(0, 280)
     if (ok) {
       ch.successCount = (ch.successCount || 0) + 1
       ch.heat = Math.min(1, (ch.heat || 0) + 0.12)
-      ch.lastError = ''
+      ch.lastError = errText
     } else {
       ch.failCount = (ch.failCount || 0) + 1
       ch.heat = Math.min(1, (ch.heat || 0) + 0.28)
+      ch.lastError = errText
     }
     // cool all unused channels slightly
     for (const c of s.channels) {

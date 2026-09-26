@@ -138,30 +138,50 @@ export function discoverConfiguredBooks() {
       }
     })
   }
-  if (process.env.POLYMARKET_POLL_URL || process.env.POLYMARKET_GAMMA_URL) {
+  if (
+    process.env.POLYMARKET_ENABLED === '1' ||
+    process.env.POLYMARKET_ENABLED === 'true' ||
+    process.env.POLYMARKET_POLL_URL ||
+    process.env.POLYMARKET_GAMMA_URL ||
+    process.env.POLYMARKET_CATALOG_URL
+  ) {
     books.push({
       bookId: 'polymarket',
       name: process.env.POLYMARKET_NAME || 'Polymarket',
       adapter: 'polymarket',
       config: {
         bookId: 'polymarket',
-        pollUrl: process.env.POLYMARKET_POLL_URL || process.env.POLYMARKET_GAMMA_URL,
+        pollIntervalMs: process.env.POLL_INTERVAL_MS || 5000,
         sportsbookName: process.env.POLYMARKET_NAME || 'Polymarket',
         bookmakerBaseUrl: process.env.POLYMARKET_BOOKMAKER_BASE_URL || 'https://polymarket.com',
-        booksUrl: process.env.POLYMARKET_BOOKS_URL || process.env.POLYMARKET_PRICES_URL || null
+        catalogUrl: process.env.POLYMARKET_CATALOG_URL || process.env.POLYMARKET_GAMMA_URL || process.env.POLYMARKET_POLL_URL || null,
+        booksUrl: process.env.POLYMARKET_BOOKS_URL || process.env.POLYMARKET_PRICES_URL || null,
+        marketTypes: process.env.POLYMARKET_MARKET_TYPES || null,
+        pageLimit: process.env.POLYMARKET_PAGE_LIMIT || null,
+        maxPages: process.env.POLYMARKET_MAX_PAGES || null
       }
     })
   }
-  if (process.env.KALSHI_POLL_URL || process.env.KALSHI_API_URL) {
+  if (
+    process.env.KALSHI_ENABLED === '1' ||
+    process.env.KALSHI_ENABLED === 'true' ||
+    process.env.KALSHI_POLL_URL ||
+    process.env.KALSHI_API_URL ||
+    process.env.KALSHI_API_BASE_URL
+  ) {
     books.push({
       bookId: 'kalshi',
       name: process.env.KALSHI_NAME || 'Kalshi',
       adapter: 'kalshi',
       config: {
         bookId: 'kalshi',
-        pollUrl: process.env.KALSHI_POLL_URL || process.env.KALSHI_API_URL,
+        pollIntervalMs: process.env.POLL_INTERVAL_MS || 5000,
         sportsbookName: process.env.KALSHI_NAME || 'Kalshi',
-        bookmakerBaseUrl: process.env.KALSHI_BOOKMAKER_BASE_URL || 'https://kalshi.com'
+        bookmakerBaseUrl: process.env.KALSHI_BOOKMAKER_BASE_URL || 'https://kalshi.com',
+        apiBaseUrl: process.env.KALSHI_API_BASE_URL || process.env.KALSHI_API_URL || process.env.KALSHI_POLL_URL || null,
+        seriesTickers: process.env.KALSHI_SERIES_TICKERS || null,
+        pageLimit: process.env.KALSHI_PAGE_LIMIT || null,
+        maxPages: process.env.KALSHI_MAX_PAGES || null
       }
     })
   }

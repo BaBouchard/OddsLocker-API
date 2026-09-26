@@ -1,18 +1,34 @@
 import crypto from 'node:crypto'
 import { patchState, getState } from './store.js'
 
-function normalizeProxyUrl(line) {
-  let u = String(line || '').trim()
-  if (!u) return null
-  if (!/^[a-z]+:\/\//i.test(u)) u = 'http://' + u
+function asProxyUrl(url) {
   try {
-    // Validate URL
-    // eslint-disable-next-line no-new
-    new URL(u)
-    return u
+    const parsed = new URL(url)
+    if (!parsed.hostname || !parsed.protocol) return null
+    return parsed.href
   } catch {
     return null
   }
+}
+
+/** Accept URL, user:pass@host:port, host:port, and host:port:user:pass. */
+function normalizeProxyUrl(line) {
+  const raw = String(line || '').trim()
+  if (!raw) return null
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return asProxyUrl(raw)
+
+  const hostPortUser = raw.match(/^([^:\s]+):(\d+):([^:]+):(.+)$/)
+  if (hostPortUser) {
+    const [, host, port, user, pass] = hostPortUser
+    const url = new URL(`http://${host}:${port}`)
+    url.username = user
+    url.password = pass
+    return asProxyUrl(url.href)
+  }
+
+  if (raw.includes('@')) return asProxyUrl('http://' + raw)
+  if (/^[^:\s]+:\d+$/.test(raw)) return asProxyUrl('http://' + raw)
+  return asProxyUrl('http://' + raw)
 }
 
 export function addProxiesFromText(text) {
@@ -21,11 +37,16 @@ export function addProxiesFromText(text) {
     .map((l) => l.trim())
     .filter(Boolean)
   const added = []
+  const rejected = []
   patchState((s) => {
     const existing = new Set(s.proxies.map((p) => p.url))
     for (const line of lines) {
       const url = normalizeProxyUrl(line)
-      if (!url || existing.has(url)) continue
+      if (!url) {
+        rejected.push(line)
+        continue
+      }
+      if (existing.has(url)) continue
       const row = {
         id: 'px_' + crypto.randomBytes(6).toString('hex'),
         url,
@@ -40,7 +61,7 @@ export function addProxiesFromText(text) {
       added.push(row.id)
     }
   })
-  return added.length
+  return { added: added.length, rejected }
 }
 
 export function removeProxy(id) {

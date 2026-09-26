@@ -1,7 +1,7 @@
-/** @typedef {'channels'|'batches'|'proxies'|'live'|'leagues'|'json'|'settings'} PageId */
+/** @typedef {'session'|'batches'|'proxies'|'live'|'leagues'|'json'|'settings'} PageId */
 
 const NAV = [
-  { id: 'channels', href: '/', label: 'Channels' },
+  { id: 'session', href: '/', label: 'Session' },
   { id: 'batches', href: '/batches', label: 'Batches' },
   { id: 'proxies', href: '/proxies', label: 'Proxies' },
   { id: 'live', href: '/live', label: 'Live feed' },
@@ -72,7 +72,7 @@ th{color:var(--muted);font-size:.68rem;text-transform:uppercase;position:sticky;
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;min-width:8rem}
 .stat b{display:block;font-size:1.4rem;font-family:JetBrains Mono,monospace;color:var(--accent)}
 .stat span{font-size:.7rem;color:var(--muted)}
-textarea,input[type=text],input[type=number],select{width:100%;background:#0a0a0e;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:.5rem;font:inherit;font-size:.8rem}
+textarea,input[type=text],input[type=number],select{width:100%;background:#0a0a0e;border:1px solid var(--border);border-radius:8px;color:#e4e4e7;caret-color:#e4e4e7;padding:.5rem;font-family:JetBrains Mono,ui-monospace,monospace;font-size:.8rem;-webkit-user-select:text;user-select:text;-webkit-app-region:no-drag;pointer-events:auto}
 .batch-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.85rem;margin-bottom:.65rem}
 .book-pills{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
 .book-pills label{font-size:.68rem;border:1px solid var(--border);padding:.2rem .45rem;border-radius:999px;cursor:pointer}
@@ -103,7 +103,7 @@ function shell(pageId, title, tagline, body) {
 <nav class="nav">${nav}</nav>
 <p class="tagline">${tagline}</p>
 ${body}
-<p class="foot">Standalone channel engine · legacy VPS/terminal hub not required · <a href="/health" style="color:var(--accent)">/health</a></p>
+<p class="foot">OddsLocker Engine · <a href="/health" style="color:var(--accent)">/health</a></p>
 </div>
 <script>
 ${clientScript(pageId)}
@@ -112,19 +112,19 @@ ${clientScript(pageId)}
 }
 
 export function renderPage(pageId) {
-  if (pageId === 'channels') {
+  if (pageId === 'session') {
     return shell(
-      'channels',
-      'Channels',
-      'Adaptive channels (coldest first) + fleet control. Each poll session runs one channel per batch in sync.',
-      channelsHtml()
+      'session',
+      'Session',
+      'One fetch across every batch. Local network or the proxy pool — no channel fleet.',
+      sessionHtml()
     )
   }
   if (pageId === 'batches') {
     return shell(
       'batches',
       'Batches',
-      'Split sportsbooks across batches. Session channel count = number of non-empty batches.',
+      'Books in a batch are fetched together. In proxy mode, each batch takes one proxy.',
       batchesHtml()
     )
   }
@@ -132,7 +132,7 @@ export function renderPage(pageId) {
     return shell(
       'proxies',
       'Proxies',
-      'Residential proxy pool. Channels acquire a sticky session per batch run and auto-rotate on failure.',
+      'Used when Settings is set to Proxy pool. One available proxy is taken per batch and released when that batch finishes.',
       proxiesHtml()
     )
   }
@@ -145,37 +145,20 @@ export function renderPage(pageId) {
   if (pageId === 'json') {
     return shell('json', 'JSON', 'Raw snapshot payload.', jsonHtml())
   }
-  return shell('settings', 'Settings', 'Engine cadence and delivery.', settingsHtml())
+  return shell('settings', 'Settings', 'Choose how requests leave this machine, then fetch once to test.', settingsHtml())
 }
 
-function channelsHtml() {
+function sessionHtml() {
   return `
-<div class="section-title">Channels</div>
-<div class="grid-channels" id="chGrid"></div>
 <div class="deck"><div class="deck-inner">
-  <div class="section-title" style="color:#c4b5fd;letter-spacing:.12em;text-transform:uppercase;font-size:.7rem">Fleet Control Station</div>
   <div class="deck-row">
     <div class="panel">
-      <label>Poll interval (ms)</label>
-      <div class="fader-val" id="pollVal">5000</div>
-      <input type="range" id="pollMs" min="1000" max="60000" step="500" value="5000">
-      <div style="margin-top:.65rem">
-        <label class="switch"><input type="checkbox" id="fleetEnabled" checked> Fleet live</label>
-        <label class="switch"><input type="checkbox" id="autoPoll"> Auto poll</label>
-        <label class="switch"><input type="checkbox" id="webhookEnabled" checked> Webhook</label>
-      </div>
-      <div style="margin-top:.65rem;display:flex;gap:.4rem;flex-wrap:wrap">
-        <button type="button" class="btn accent" id="btnRun">Run session now</button>
-        <button type="button" class="btn" id="btnSaveFleet">Save cadence</button>
-      </div>
+      <label>Request route</label>
+      <div id="modeLabel" style="font-size:1.05rem;margin:.35rem 0 .85rem">—</div>
+      <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
+      <p style="font-size:.72rem;color:var(--muted);margin:.65rem 0 0">Runs every batch one time. Switch local network vs proxy pool in Settings.</p>
     </div>
-    <div class="panel">
-      <label>Channel count</label>
-      <input type="number" id="chCount" min="1" max="50" value="10">
-      <button type="button" class="btn" id="btnChCount" style="margin-top:.5rem">Apply channel count</button>
-      <p style="font-size:.68rem;color:var(--muted);margin:.65rem 0 0">Need at least as many enabled channels as batches. Coldest channels are chosen each session.</p>
-    </div>
-    <div class="panel summary" id="fleetSummary">
+    <div class="panel summary">
       <div>Sessions: <strong id="sSessions">0</strong></div>
       <div>Last: <strong id="sLast">—</strong></div>
       <div>Entries: <strong id="sEntries">—</strong></div>
@@ -203,8 +186,9 @@ function proxiesHtml() {
   return `
 <div class="stat-row" id="proxyStats"></div>
 <div class="panel" style="margin-bottom:1rem">
-  <label>Add proxies (one per line — http://user:pass@host:port)</label>
-  <textarea id="proxyText" rows="6" placeholder="http://user:pass@1.2.3.4:8000"></textarea>
+  <label for="proxyText">Add proxies (one per line)</label>
+  <textarea id="proxyText" rows="6" spellcheck="false" autocomplete="off" placeholder="http://user:pass@1.2.3.4:8000&#10;1.2.3.4:8000:user:pass"></textarea>
+  <p id="proxyMsg" style="font-size:.75rem;color:var(--muted);min-height:1.1rem;margin:.4rem 0 0"></p>
   <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">
     <button type="button" class="btn accent" id="btnAddProxies">Add to pool</button>
     <button type="button" class="btn" id="btnResetBad">Reset bad → available</button>
@@ -216,7 +200,10 @@ function proxiesHtml() {
 }
 
 function liveHtml() {
-  return `<div class="section-title">Live feed <span id="liveCount" style="color:var(--accent)"></span></div>
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-bottom:.65rem">
+  <div class="section-title" style="margin:0">Live feed <span id="liveCount" style="color:var(--accent)"></span></div>
+  <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
+</div>
 <div class="table-wrap"><table><thead><tr><th>Sport</th><th>League</th><th>Event</th><th>Book</th><th>Market</th><th>Outcome</th><th>Odds</th></tr></thead><tbody id="liveBody"></tbody></table></div>`
 }
 
@@ -229,14 +216,29 @@ function jsonHtml() {
 }
 
 function settingsHtml() {
-  return `<div class="panel">
-<p style="margin-top:0;font-size:.85rem;color:var(--muted)">Cadence is also on the Channels fleet deck. Webhook URL is set via <code>WEBHOOK_URL</code> in <code>odds-engine/.env</code>.</p>
-<ul style="font-size:.8rem;color:var(--muted)">
-<li>Start: <code>cd odds-engine && npm install && npm start</code></li>
-<li>Open: <code>http://localhost:3100</code></li>
-<li>Backup of legacy system: git tag <code>v-pre-channel-engine</code> / branch <code>backup/vps-terminal-era</code></li>
-</ul>
-</div>`
+  return `<div class="panel" style="margin-bottom:1rem">
+  <label>Request route</label>
+  <div style="margin:.45rem 0 .25rem">
+    <label class="switch"><input type="radio" name="fetchMode" value="local"> Local network</label>
+    <label class="switch"><input type="radio" name="fetchMode" value="proxy"> Proxy pool</label>
+  </div>
+  <p style="font-size:.78rem;color:var(--muted);margin:0">Local network sends every request from this machine. Proxy pool assigns one proxy to each batch. Channels are not part of either route.</p>
+</div>
+<div class="panel" style="margin-bottom:1rem">
+  <label>Poll interval (ms)</label>
+  <div class="fader-val" id="pollVal">5000</div>
+  <input type="range" id="pollMs" min="1000" max="60000" step="500" value="5000">
+  <div style="margin-top:.65rem">
+    <label class="switch"><input type="checkbox" id="fleetEnabled" checked> Engine live</label>
+    <label class="switch"><input type="checkbox" id="autoPoll"> Auto poll</label>
+    <label class="switch"><input type="checkbox" id="webhookEnabled" checked> Webhook</label>
+  </div>
+  <div style="margin-top:.75rem;display:flex;gap:.4rem;flex-wrap:wrap">
+    <button type="button" class="btn" id="btnSaveSettings">Save settings</button>
+    <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
+  </div>
+</div>
+<p style="font-size:.78rem;color:var(--muted)">Webhook URL is <code>WEBHOOK_URL</code> in <code>.env</code>. Auto poll only runs while Engine live is on.</p>`
 }
 
 function clientScript(pageId) {
@@ -249,40 +251,28 @@ async function api(path,opts){
   return res.json();
 }
 function ago(ts){if(!ts)return '—';const s=Math.floor((Date.now()-ts)/1000);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';return Math.floor(s/3600)+'h ago'}
-function renderChannels(){
-  const grid=document.getElementById('chGrid'); if(!grid||!state) return;
-  grid.innerHTML=state.channels.map(c=>{
-    const heat=Math.round((c.heat||0)*100);
-    return '<div class="ch-card '+(c.enabled?'':'disabled')+' '+(c.status==='running'?'running':'')+'" data-id="'+c.id+'">'+
-      '<div class="n">CH '+c.n+'</div>'+
-      '<div style="color:var(--muted)">'+(c.status||'idle')+'</div>'+
-      '<div class="ch-heat"><i style="width:'+heat+'%"></i></div>'+
-      '<div>heat '+heat+'%</div>'+
-      '<div>'+ago(c.lastUsedAt)+'</div>'+
-      '<label class="switch" style="margin-top:.35rem"><input type="checkbox" data-en="'+c.id+'" '+(c.enabled?'checked':'')+'> On</label>'+
-      '</div>';
-  }).join('');
-  grid.querySelectorAll('[data-en]').forEach(inp=>{
-    inp.onchange=async()=>{
-      state=await api('/api/channels/'+inp.dataset.en,{method:'PUT',body:JSON.stringify({enabled:inp.checked})});
-      renderChannels(); renderFleet();
-    };
-  });
-}
-function renderFleet(){
+function routeLabel(mode){return mode==='proxy'?'Proxy pool':'Local network'}
+function renderSession(){
   if(!state) return;
   const f=state.fleet||{};
+  const mode=document.getElementById('modeLabel');
+  if(mode) mode.textContent=routeLabel(f.fetchMode);
+  const sSessions=document.getElementById('sSessions'); if(sSessions) sSessions.textContent=String(state.stats?.sessions||0);
+  const sLast=document.getElementById('sLast'); if(sLast) sLast.textContent=ago(state.stats?.lastSessionAt);
+  const sEntries=document.getElementById('sEntries'); if(sEntries) sEntries.textContent=state.snapshot?String(state.snapshot.entryCount):'—';
+  const sProx=document.getElementById('sProxFree'); if(sProx) sProx.textContent=String(state.proxyStats?.available??'—');
+}
+function renderSettings(){
+  if(!state) return;
+  const f=state.fleet||{};
+  const mode=f.fetchMode==='proxy'?'proxy':'local';
+  document.querySelectorAll('input[name=fetchMode]').forEach(el=>{el.checked=el.value===mode});
   const poll=document.getElementById('pollMs');
   const pollVal=document.getElementById('pollVal');
   if(poll&&document.activeElement!==poll){poll.value=f.pollIntervalMs||5000; if(pollVal) pollVal.textContent=String(poll.value)}
   const fe=document.getElementById('fleetEnabled'); if(fe) fe.checked=!!f.fleetEnabled;
   const ap=document.getElementById('autoPoll'); if(ap) ap.checked=!!f.autoPoll;
   const wh=document.getElementById('webhookEnabled'); if(wh) wh.checked=!!f.webhookEnabled;
-  const cc=document.getElementById('chCount'); if(cc && document.activeElement!==cc) cc.value=state.channels.length;
-  const sSessions=document.getElementById('sSessions'); if(sSessions) sSessions.textContent=String(state.stats?.sessions||0);
-  const sLast=document.getElementById('sLast'); if(sLast) sLast.textContent=ago(state.stats?.lastSessionAt);
-  const sEntries=document.getElementById('sEntries'); if(sEntries) sEntries.textContent=state.snapshot?String(state.snapshot.entryCount):'—';
-  const sProx=document.getElementById('sProxFree'); if(sProx) sProx.textContent=String(state.proxyStats?.available??'—');
 }
 function renderBatches(){
   const ed=document.getElementById('batchEditor'); if(!ed||!state) return;
@@ -352,7 +342,8 @@ function renderLeagues(lw){
 function esc(s){if(s==null)return '';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 async function refresh(){
   state=await api('/api/state');
-  if(PAGE==='channels'){renderChannels();renderFleet();}
+  if(PAGE==='session') renderSession();
+  if(PAGE==='settings') renderSettings();
   if(PAGE==='batches')renderBatches();
   if(PAGE==='proxies')renderProxies();
   if(PAGE==='live' || PAGE==='json' || PAGE==='leagues'){
@@ -368,25 +359,11 @@ async function refresh(){
 function bind(){
   const poll=document.getElementById('pollMs');
   if(poll) poll.oninput=()=>{const v=document.getElementById('pollVal'); if(v) v.textContent=poll.value;};
-  document.getElementById('btnSaveFleet')?.addEventListener('click', async()=>{
-    state=await api('/api/fleet',{method:'PUT',body:JSON.stringify({
-      pollIntervalMs:Number(document.getElementById('pollMs').value),
-      fleetEnabled:document.getElementById('fleetEnabled').checked,
-      autoPoll:document.getElementById('autoPoll').checked,
-      webhookEnabled:document.getElementById('webhookEnabled').checked
-    })});
-    renderFleet();
+  document.getElementById('btnSaveSettings')?.addEventListener('click', async()=>{
+    state=await saveSettingsFromForm();
+    renderSettings();
   });
-  document.getElementById('btnRun')?.addEventListener('click', async()=>{
-    const r=await api('/api/session/run',{method:'POST',body:'{}'});
-    state=r.state||await api('/api/state');
-    renderChannels(); renderFleet();
-    alert(r.ok?'Session complete':'Session: '+(r.reason||'failed'));
-  });
-  document.getElementById('btnChCount')?.addEventListener('click', async()=>{
-    state=await api('/api/channels/count',{method:'PUT',body:JSON.stringify({count:Number(document.getElementById('chCount').value)})});
-    renderChannels(); renderFleet();
-  });
+  document.getElementById('btnFetchOnce')?.addEventListener('click', ()=>fetchOnce());
   document.getElementById('btnSplit')?.addEventListener('click', async()=>{
     state=await api('/api/batches',{method:'PUT',body:JSON.stringify({count:Number(document.getElementById('batchCount').value)})});
     renderBatches();
@@ -396,9 +373,23 @@ function bind(){
     renderBatches();
   });
   document.getElementById('btnAddProxies')?.addEventListener('click', async()=>{
-    const text=document.getElementById('proxyText').value;
-    state=await api('/api/proxies',{method:'POST',body:JSON.stringify({text})});
-    document.getElementById('proxyText').value='';
+    const box=document.getElementById('proxyText');
+    const msg=document.getElementById('proxyMsg');
+    const text=box?box.value:'';
+    const r=await api('/api/proxies',{method:'POST',body:JSON.stringify({text})});
+    state=r;
+    const added=Number(r.added)||0;
+    const rejected=Array.isArray(r.rejected)?r.rejected:[];
+    if(box){
+      if(added>0 && rejected.length===0) box.value='';
+      else if(rejected.length) box.value=rejected.join('\\n');
+    }
+    if(msg){
+      if(!text.trim()) msg.textContent='Type or paste at least one proxy.';
+      else if(rejected.length) msg.textContent='Could not read ' + rejected.length + ' line' + (rejected.length===1?'':'s') + '. Those lines were left in the box.';
+      else if(!added) msg.textContent='Already in the pool.';
+      else msg.textContent='Added ' + added + '.';
+    }
     renderProxies();
   });
   document.getElementById('btnResetBad')?.addEventListener('click', async()=>{
@@ -409,6 +400,47 @@ function bind(){
     state=await api('/api/proxies/clear',{method:'POST',body:'{}'}); renderProxies();
   });
 }
+async function saveSettingsFromForm(){
+  const modeEl=document.querySelector('input[name=fetchMode]:checked');
+  const body={};
+  if(modeEl) body.fetchMode=modeEl.value;
+  const poll=document.getElementById('pollMs');
+  if(poll) body.pollIntervalMs=Number(poll.value);
+  const fe=document.getElementById('fleetEnabled');
+  if(fe) body.fleetEnabled=fe.checked;
+  const ap=document.getElementById('autoPoll');
+  if(ap) body.autoPoll=ap.checked;
+  const wh=document.getElementById('webhookEnabled');
+  if(wh) body.webhookEnabled=wh.checked;
+  state=await api('/api/fleet',{method:'PUT',body:JSON.stringify(body)});
+  return state;
+}
+async function fetchOnce(){
+  const btn=document.getElementById('btnFetchOnce');
+  if(btn){btn.disabled=true; btn.textContent='Fetching…';}
+  try{
+    if(document.querySelector('input[name=fetchMode]')) await saveSettingsFromForm();
+    const r=await api('/api/session/run',{method:'POST',body:'{}'});
+    state=r.state||await api('/api/state');
+    renderSession();
+    renderSettings();
+    if(PAGE==='live') renderLive((r.snapshot&&r.snapshot.data)||[]);
+    const n=(r.snapshot&&r.snapshot.data)?r.snapshot.data.length:(state.snapshot?state.snapshot.entryCount:0);
+    const errs=((r.snapshot&&r.snapshot.errors)||[]).slice(0,4).map(e=>(e.book||'*')+': '+e.error);
+    if(!r.ok){
+      let extra='';
+      if(r.reason==='not_enough_proxies') extra=' — need '+r.need+' available proxies (one per batch), have '+r.have;
+      else if(r.need!=null) extra=' (need '+r.need+', have '+r.have+')';
+      alert('Fetch: '+(r.reason||'failed')+extra);
+    }else{
+      alert('Fetched '+n+' odds'+(errs.length?'\\n'+errs.join('\\n'):''));
+    }
+  }catch(e){
+    alert('Fetch failed: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false; btn.textContent='Fetch odds once';}
+  }
+}
 function connectWs(){
   const proto=location.protocol==='https:'?'wss://':'ws://';
   const ws=new WebSocket(proto+location.host+'/ws');
@@ -416,7 +448,8 @@ function connectWs(){
     let msg; try{msg=JSON.parse(ev.data)}catch(_){return}
     if(msg.type!=='odds') return;
     if(msg.engine){state={...state,...msg.engine,configuredBooks:state?.configuredBooks};}
-    if(PAGE==='channels'){renderChannels();renderFleet();}
+    if(PAGE==='session') renderSession();
+    if(PAGE==='settings') renderSettings();
     if(PAGE==='proxies')renderProxies();
     if(PAGE==='live')renderLive(msg.data);
     if(PAGE==='leagues')renderLeagues(msg.leagueWatcher);

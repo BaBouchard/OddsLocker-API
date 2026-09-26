@@ -32,7 +32,8 @@ export function createDefaultState() {
       autoPoll: process.env.AUTO_POLL === 'true' || process.env.AUTO_POLL === '1',
       pollIntervalMs: Number(process.env.POLL_INTERVAL_MS) || 5000,
       fleetEnabled: true,
-      webhookEnabled: true
+      webhookEnabled: true,
+      fetchMode: 'local'
     },
     channels,
     batches: [

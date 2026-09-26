@@ -1,5 +1,4 @@
 import { getState, patchState, getFullSnapshot } from '../state/store.js'
-import { pickColdestChannels } from '../state/channels.js'
 import { runChannelBatch } from '../workers/run-batch.js'
 import { installProxiedGlobalFetch } from '../workers/proxy-fetch.js'
 import { pushWebhook } from './webhook.js'
@@ -45,36 +44,33 @@ export async function runPollSession() {
     return { ok: false, reason: 'already_running' }
   }
   const s = getState()
-  if (!s.fleet.fleetEnabled) {
-    return { ok: false, reason: 'fleet_disabled' }
-  }
+  const useProxy = s.fleet.fetchMode === 'proxy'
 
   const batches = s.batches.filter((b) => Array.isArray(b.books) && b.books.length > 0)
   if (batches.length === 0) {
     return { ok: false, reason: 'no_batches' }
   }
 
-  const channels = pickColdestChannels(batches.length)
-  if (channels.length < batches.length) {
-    return {
-      ok: false,
-      reason: 'not_enough_channels',
-      need: batches.length,
-      have: channels.length
+  if (useProxy) {
+    const available = (s.proxies || []).filter((p) => p.status === 'available').length
+    if (available < batches.length) {
+      return {
+        ok: false,
+        reason: 'not_enough_proxies',
+        need: batches.length,
+        have: available
+      }
     }
   }
 
   running = true
   const started = Date.now()
-  const channelMap = {}
-  const assignments = batches.map((batch, i) => {
-    channelMap[batch.id] = channels[i].id
-    return { batch, channel: channels[i] }
-  })
+  const assignments = batches.map((batch) => ({ batch, useProxy }))
 
   console.log(
     '[Engine] Sync session:',
-    assignments.map((a) => `${a.channel.id}→${a.batch.id}(${a.batch.books.length} books)`).join(', ')
+    useProxy ? 'proxy pool' : 'local network',
+    assignments.map((a) => `${a.batch.id}(${a.batch.books.length} books)`).join(', ')
   )
 
   let results
@@ -86,7 +82,7 @@ export async function runPollSession() {
 
   const allEntries = results.flatMap((r) => r.entries || [])
   const allErrors = results.flatMap((r) =>
-    (r.errors || []).map((e) => ({ ...e, channelId: r.channelId, batchId: r.batchId }))
+    (r.errors || []).map((e) => ({ ...e, batchId: r.batchId }))
   )
   const books = [...new Set(allEntries.map((e) => e.sportsbook).filter(Boolean))]
   let leagueWatcher = null
@@ -98,11 +94,10 @@ export async function runPollSession() {
     ts: Date.now(),
     data: allEntries,
     books,
-    channelMap,
+    fetchMode: useProxy ? 'proxy' : 'local',
     durationMs: Date.now() - started,
     errors: allErrors,
     results: results.map((r) => ({
-      channelId: r.channelId,
       batchId: r.batchId,
       entries: (r.entries || []).length,
       errors: r.errors || [],
@@ -146,6 +141,9 @@ export function updateFleet(patch) {
     if (patch.webhookEnabled !== undefined) s.fleet.webhookEnabled = !!patch.webhookEnabled
     if (patch.pollIntervalMs !== undefined) {
       s.fleet.pollIntervalMs = Math.max(1000, Math.min(300000, Number(patch.pollIntervalMs) || 5000))
+    }
+    if (patch.fetchMode !== undefined) {
+      s.fleet.fetchMode = patch.fetchMode === 'proxy' ? 'proxy' : 'local'
     }
   })
   scheduleNext()

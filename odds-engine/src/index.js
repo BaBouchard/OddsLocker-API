@@ -63,7 +63,7 @@ function sendPage(req, res, pageId) {
   res.type('html').send(renderPage(pageId))
 }
 
-app.get('/', (req, res) => sendPage(req, res, 'channels'))
+app.get('/', (req, res) => sendPage(req, res, 'session'))
 app.get('/batches', (req, res) => sendPage(req, res, 'batches'))
 app.get('/proxies', (req, res) => sendPage(req, res, 'proxies'))
 app.get('/live', (req, res) => sendPage(req, res, 'live'))
@@ -114,8 +114,10 @@ app.put('/api/batches', requireAuth, (req, res) => {
 })
 
 app.post('/api/proxies', requireAuth, (req, res) => {
-  const n = addProxiesFromText(req.body?.text || req.body?.proxies || '')
-  res.json({ ...getPublicState(), added: n })
+  const result = addProxiesFromText(req.body?.text || req.body?.proxies || '')
+  const added = typeof result === 'number' ? result : result.added
+  const rejected = typeof result === 'number' ? [] : result.rejected
+  res.json({ ...getPublicState(), added, rejected })
 })
 
 app.delete('/api/proxies/:id', requireAuth, (req, res) => {

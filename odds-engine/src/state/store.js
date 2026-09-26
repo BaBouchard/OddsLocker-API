@@ -44,7 +44,11 @@ function migrateState(raw) {
     channels: Array.isArray(raw.channels) && raw.channels.length ? raw.channels : base.channels,
     batches: Array.isArray(raw.batches) && raw.batches.length ? raw.batches : base.batches,
     proxies: Array.isArray(raw.proxies) ? raw.proxies : [],
-    fleet: { ...base.fleet, ...(raw.fleet || {}) },
+    fleet: {
+      ...base.fleet,
+      ...(raw.fleet || {}),
+      fetchMode: raw.fleet?.fetchMode === 'proxy' ? 'proxy' : 'local'
+    },
     stats: { ...base.stats, ...(raw.stats || {}) }
   }
 }
