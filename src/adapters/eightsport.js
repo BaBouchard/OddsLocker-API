@@ -1,6 +1,7 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
 import { blockedMeta, errorMeta } from '../fetch-status.js'
+import { withBrowserSession } from '../browser-fetch.js'
 
 /** Convert decimal odds to American. */
 function decimalToAmerican(decimal) {
@@ -71,27 +72,42 @@ export class EightEightEightAdapter extends BaseAdapter {
     const cookie = this.config.cookie ?? process.env.EIGHTS_COOKIE
 
     const headers = {
-      Accept: '*/*',
+      Accept: 'application/json',
       'Accept-Language': 'en-US,en;q=0.9',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
       Origin: 'https://www.888sport.com',
-      Referer: 'https://www.888sport.com/',
+      Referer: 'https://www.888sport.com/live-betting/',
       'Sec-Fetch-Site': 'same-site',
       'Sec-Fetch-Mode': 'cors',
       'Sec-Fetch-Dest': 'empty'
     }
-    if (cookie) headers.Cookie = cookie
 
     try {
-      const res = await fetch(url, {
-        method: 'GET',
-        signal: AbortSignal.timeout(60000),
-        headers: { ...headers, ...this.config.fetchOptions?.headers }
+      const res = await withBrowserSession(async (session) => {
+        const home = await session.fetch('https://www.888sport.com/live-betting/', {
+          headers: { Accept: 'text/html' },
+          signal: AbortSignal.timeout(60000)
+        })
+        const html = await home.text()
+        const version = html.match(/spectate_client_ver=([0-9.]+)/)
+        if (version) session.setCookie('spectate_client_ver', version[1], 'https://www.888sport.com/')
+        if (cookie) {
+          for (const part of String(cookie).split(';')) {
+            const eq = part.indexOf('=')
+            if (eq > 0) session.setCookie(part.slice(0, eq).trim(), part.slice(eq + 1).trim(), 'https://www.888sport.com/')
+          }
+        }
+        return session.fetch(url, {
+          method: 'GET',
+          signal: AbortSignal.timeout(60000),
+          headers: { ...headers, ...this.config.fetchOptions?.headers }
+        })
       })
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] 888Sport API', res.status, res.statusText, text.slice(0, 200))
-        this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...blockedMeta(res.status, text) })
+        const status = blockedMeta(res.status, text)
+        if (!status.blocked) status.blocked = true
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...status })
         return
       }
       let data

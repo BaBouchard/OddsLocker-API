@@ -3,6 +3,9 @@ import path from 'path'
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry, normalizeLeague } from '../schema.js'
 import { blockedMeta, errorMeta, summarizeFlags } from '../fetch-status.js'
+import { browserFetch } from '../browser-fetch.js'
+
+const MARKETPLACE_HASH = 'c587e757f8e71fcbe6ea01e6b8a8da697bd7a9e9213c157a687bb79a6f5b828d'
 
 const DEFAULT_SECTIONS = ['baseball', 'tennis', 'basketball', 'ebasketball']
 
@@ -20,11 +23,16 @@ export function buildTheScoreSectionUrl(baseUrl, sectionSlug) {
   const u = new URL(baseUrl)
   const varsRaw = u.searchParams.get('variables')
   if (!varsRaw) throw new Error('The Score Bet poll URL missing variables query param')
+  u.pathname = `/graphql/persisted_queries/${MARKETPLACE_HASH}`
   const vars = JSON.parse(varsRaw)
   vars.selectedFilterId = `Section:Live:${sectionSlug}`
   vars.canonicalUrl = `/live/section/${sectionSlug}`
   vars.includeSectionDefaultField = false
+  if (vars.isBlueprintUiFieldEnabled == null) vars.isBlueprintUiFieldEnabled = false
   u.searchParams.set('variables', JSON.stringify(vars))
+  const extensions = JSON.parse(u.searchParams.get('extensions') || '{}')
+  extensions.persistedQuery = { version: 1, sha256Hash: MARKETPLACE_HASH }
+  u.searchParams.set('extensions', JSON.stringify(extensions))
   return u.toString()
 }
 
@@ -117,18 +125,12 @@ function buildHeaders(config) {
 
   const headers = {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
     'Accept-Language': 'en-US,en;q=0.9',
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
     Origin: origin,
     Referer: referer,
     'Sec-Fetch-Dest': 'empty',
     'Sec-Fetch-Mode': 'cors',
     'Sec-Fetch-Site': 'same-site',
-    'x-client': 'espnbet',
-    'x-app': 'espnbet',
-    'x-platform': 'web',
-    'x-app-version': clientVersion,
     'apollographql-client-name': 'espnbet-espnbet-web',
     'apollographql-client-version': clientVersion,
     'x-apollo-operation-name': 'Marketplace',
@@ -204,12 +206,23 @@ export class TheScoreAdapter extends BaseAdapter {
   async _fetchSection(sectionSlug, url, opts = {}) {
     const { sportsbook, baseUrl, shouldDebug, debugPath, debugAll } = opts
     this._sectionFlags = this._sectionFlags || []
-    const res = await fetch(url, {
+    const headers = buildHeaders(this.config)
+    let res = await browserFetch(url, {
       method: 'GET',
       signal: AbortSignal.timeout(60000),
-      headers: buildHeaders(this.config),
+      headers,
       ...this.config.fetchOptions
     })
+    if (res.status === 401 && headers['x-anonymous-authorization']) {
+      const retryHeaders = { ...headers }
+      delete retryHeaders['x-anonymous-authorization']
+      res = await browserFetch(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(60000),
+        headers: retryHeaders,
+        ...this.config.fetchOptions
+      })
+    }
     const text = await res.text()
 
     if (!res.ok) {
@@ -240,11 +253,12 @@ export class TheScoreAdapter extends BaseAdapter {
     }
 
     if (Array.isArray(data.errors) && data.errors.length > 0 && !data.data?.page) {
+      const message = data.errors[0]?.message || 'GraphQL request rejected'
       if (!this._authWarned) {
-        console.warn('[LiveOdds] The Score Bet GraphQL errors:', sectionSlug, data.errors[0]?.message || data.errors[0])
+        console.warn('[LiveOdds] The Score Bet GraphQL errors:', sectionSlug, message)
         this._authWarned = true
       }
-      this._sectionFlags.push({ ok: true })
+      this._sectionFlags.push({ blocked: true, blockReason: String(message).slice(0, 140) })
       return []
     }
 

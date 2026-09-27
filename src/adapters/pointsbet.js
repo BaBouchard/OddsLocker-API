@@ -1,6 +1,7 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
 import { blockedMeta, errorMeta, summarizeFlags } from '../fetch-status.js'
+import { browserFetch } from '../browser-fetch.js'
 
 /** Convert decimal odds to American. */
 function decimalToAmerican(decimal) {
@@ -68,7 +69,6 @@ export class PointsBetAdapter extends BaseAdapter {
     const headers = {
       Accept: 'application/json',
       'Accept-Language': 'en-US,en;q=0.9',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
       Referer: 'https://on.pointsbet.ca/',
       Origin: 'https://on.pointsbet.ca',
       'Sec-Fetch-Dest': 'empty',
@@ -82,7 +82,7 @@ export class PointsBetAdapter extends BaseAdapter {
     const settled = await Promise.all(
       sportUrls.map(async ({ sport, url }) => {
         try {
-          const res = await fetch(url, {
+          const res = await browserFetch(url, {
             signal: AbortSignal.timeout(60000),
             headers: { ...headers }
           })

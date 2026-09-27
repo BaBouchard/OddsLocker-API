@@ -1,6 +1,7 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
 import { blockedMeta, errorMeta } from '../fetch-status.js'
+import { browserFetch } from '../browser-fetch.js'
 
 /** Map BetMGM market name/label to normalized market_type. We scrape every market; map known ones for consistency. */
 function toMarketType(name, label = '') {
@@ -83,14 +84,13 @@ export class BetMGMAdapter extends BaseAdapter {
     try {
       const cookie = this.config.cookie ?? process.env.BETMGM_COOKIE
       const headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
         Accept: 'application/json',
         'Accept-Language': 'en-US,en;q=0.9',
         Referer: baseUrl + '/',
         Origin: baseUrl
       }
       if (cookie) headers.Cookie = cookie
-      const res = await fetch(url, {
+      const res = await browserFetch(url, {
         signal: AbortSignal.timeout(60000),
         headers: { ...headers, ...this.config.fetchOptions?.headers }
       })
