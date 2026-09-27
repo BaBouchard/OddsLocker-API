@@ -7,6 +7,7 @@
  * - copy bundled default.env
  */
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -73,5 +74,21 @@ if (fs.existsSync(legacyBundled)) {
 
 console.log('[prepare-desktop-v2] Installing odds-engine deps…')
 execSync('npm install --omit=dev', { cwd: engine, stdio: 'inherit' })
+
+// The Windows installer is built on macOS, which does not install the win32
+// native binding. Pack it in so the shipped app can open the SportsBetting socket.
+const winBinding = path.join(engine, 'node_modules/@wreq-js/binding-win32-x64-msvc/package.json')
+if (!fs.existsSync(winBinding)) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wreq-win-'))
+  execSync('npm pack @wreq-js/binding-win32-x64-msvc@3.2.0 --pack-destination ' + JSON.stringify(tmp), {
+    cwd: engine,
+    stdio: 'inherit'
+  })
+  const tarball = fs.readdirSync(tmp).find((name) => name.endsWith('.tgz'))
+  execSync('tar -xzf ' + JSON.stringify(path.join(tmp, tarball)) + ' -C ' + JSON.stringify(tmp))
+  fs.mkdirSync(path.join(engine, 'node_modules/@wreq-js'), { recursive: true })
+  fs.cpSync(path.join(tmp, 'package'), path.join(engine, 'node_modules/@wreq-js/binding-win32-x64-msvc'), { recursive: true })
+  console.log('[prepare-desktop-v2] Added Windows wreq-js binding')
+}
 
 console.log('[prepare-desktop-v2] Ready.')

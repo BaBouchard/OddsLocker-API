@@ -10,15 +10,22 @@ const WS_PATH = '/pushd'
 const TOPIC_SELECTOR = '*rdd/ui/bol/event/live/'
 const ORIGIN = 'https://www.sportsbetting.ag'
 const LIVE_PAGE = 'https://www.sportsbetting.ag/sportsbook/live'
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15'
+const BROWSER = 'chrome_149'
 
 const EVENT_ROOT = /^rdd\/ui\/bol\/event\/live\/.+\/(\d+)$/
 const MAIN_MARKET = /^rdd\/ui\/bol\/event\/live\/.+\/(\d+)\/markets\/\d+-(MONEYLINE|SPREAD|TOTAL)-\d+$/
 const MARKET_TYPE = { MONEYLINE: 'moneyline', SPREAD: 'spread', TOTAL: 'total' }
 
 let diffusionLib = null
-let socketAgent = null
+let WreqWebSocket = null
+let currentProxyUrl = null
 let handshakeError = null
+
+function browserOs() {
+  if (process.platform === 'win32') return 'windows'
+  if (process.platform === 'darwin') return 'macos'
+  return 'linux'
+}
 
 function enginePackageJson() {
   if (process.env.SCRAPER_SRC_ROOT) {
@@ -31,45 +38,63 @@ function requireEngine(name) {
   return createRequire(enginePackageJson())(name)
 }
 
+function noteHandshakeError(message) {
+  const match = String(message || '').match(/status code:\s*(\d+)/i)
+  if (!match) return
+  const code = Number(match[1])
+  if (code === 403 || code === 520) {
+    handshakeError = new Error(code === 403 ? 'HTTP 403 Cloudflare' : `HTTP ${code}`)
+  } else if (code) {
+    handshakeError = new Error(`HTTP ${code}`)
+  }
+}
+
 class DiffusionSocket {
   constructor(url) {
-    this.binaryType = 'arraybuffer'
+    this._binaryType = 'arraybuffer'
     this.onopen = null
     this.onmessage = null
     this.onerror = null
     this.onclose = null
-    const WS = requireEngine('ws')
-    const ws = new WS(url, {
-      agent: socketAgent || undefined,
-      headers: { Origin: ORIGIN, 'User-Agent': UA },
-      handshakeTimeout: 20000
+    const ws = new WreqWebSocket(url, {
+      browser: BROWSER,
+      os: browserOs(),
+      proxy: currentProxyUrl || undefined,
+      headers: { Origin: ORIGIN }
     })
     this._ws = ws
-    ws.on('unexpected-response', (_req, res) => {
-      const code = Number(res.statusCode) || 0
-      const server = String(res.headers?.server || '')
-      handshakeError = new Error(
-        code === 403 || /cloudflare/i.test(server) ? `HTTP ${code || 403} Cloudflare` : `HTTP ${code}`
-      )
-      try { ws.terminate() } catch { /* already closed */ }
-    })
-    ws.on('open', () => this.onopen?.())
-    ws.on('message', (data) => {
-      let payload = data
-      if (this.binaryType === 'arraybuffer' && Buffer.isBuffer(data)) {
-        payload = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+    if ('binaryType' in ws) ws.binaryType = 'arraybuffer'
+    ws.onopen = () => this.onopen?.()
+    ws.onmessage = (event) => {
+      let payload = event?.data
+      if (this._binaryType === 'arraybuffer' && Buffer.isBuffer(payload)) {
+        payload = payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength)
       }
       this.onmessage?.({ data: payload })
-    })
-    ws.on('error', (err) => this.onerror?.(err))
-    ws.on('close', (code, reason) => this.onclose?.({ code, reason: String(reason || '') }))
+    }
+    ws.onerror = (event) => {
+      const err = event?.error || event
+      noteHandshakeError(err?.message || err)
+      this.onerror?.(err)
+    }
+    ws.onclose = (event) => this.onclose?.({ code: event?.code, reason: String(event?.reason || '') })
+  }
+
+  get binaryType() { return this._binaryType }
+  set binaryType(value) {
+    this._binaryType = value
+    if (this._ws) this._ws.binaryType = value
   }
 
   send(data) { this._ws.send(data) }
   close() { try { this._ws.close() } catch { /* already closed */ } }
 }
 
-function loadDiffusion() {
+async function ensureClients() {
+  if (!WreqWebSocket) {
+    const mod = await import(pathToFileURL(path.join(path.dirname(enginePackageJson()), 'node_modules/wreq-js/dist/wreq-js.js')).href)
+    WreqWebSocket = mod.WebSocket
+  }
   if (diffusionLib) return diffusionLib
   const native = globalThis.WebSocket
   Object.defineProperty(globalThis, 'WebSocket', {
@@ -85,13 +110,6 @@ function loadDiffusion() {
     }
   }
   return diffusionLib
-}
-
-async function proxyAgent(proxyUrl) {
-  if (!proxyUrl) return null
-  const mod = await import(pathToFileURL(path.join(path.dirname(enginePackageJson()), 'node_modules/https-proxy-agent/dist/index.js')).href)
-  const Agent = mod.HttpsProxyAgent
-  return new Agent(proxyUrl)
 }
 
 function teamName(participant) {
@@ -221,9 +239,10 @@ export class SportsBettingAdapter extends BaseAdapter {
     let session = null
     handshakeError = null
     try {
-      const diffusion = loadDiffusion()
+      const diffusion = await ensureClients()
+      if (typeof diffusion.log === 'function') diffusion.log('silent')
       const connect = async (proxyUrl) => {
-        socketAgent = await proxyAgent(proxyUrl)
+        currentProxyUrl = proxyUrl || null
         handshakeError = null
         try {
           return await diffusion.connect({
@@ -254,7 +273,7 @@ export class SportsBettingAdapter extends BaseAdapter {
         this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...status })
       }
     } finally {
-      socketAgent = null
+      currentProxyUrl = null
       if (session && typeof session.close === 'function') {
         try { await session.close() } catch { /* session already closed */ }
       }

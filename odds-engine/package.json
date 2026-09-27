@@ -9,11 +9,12 @@
     "dev": "node --watch src/index.js"
   },
   "dependencies": {
-    "diffusion": "^6.12.2",
+    "diffusion": "^6.8.2",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "https-proxy-agent": "^9.1.0",
     "undici": "^6.21.0",
+    "wreq-js": "^3.2.0",
     "ws": "^8.18.0"
   },
   "engines": {
