@@ -84,13 +84,13 @@ export function onStateChange(fn) {
   return () => listeners.delete(fn)
 }
 
-export function patchState(mutator) {
+export function patchState(mutator, opts = {}) {
   const s = getState()
   mutator(s)
   s.updatedAt = Date.now()
   s.rev = (s.rev || 0) + 1
   persistSoon()
-  notify()
+  if (!opts.silent) notify()
   return s
 }
 

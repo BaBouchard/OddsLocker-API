@@ -1,6 +1,7 @@
 import { getState, patchState, getFullSnapshot } from '../state/store.js'
+import { acquireProxy, releaseProxy } from '../state/proxies.js'
 import { runChannelBatch } from '../workers/run-batch.js'
-import { installProxiedGlobalFetch } from '../workers/proxy-fetch.js'
+import { installProxiedGlobalFetch, setRequestProxy } from '../workers/proxy-fetch.js'
 import { pushWebhook } from './webhook.js'
 
 let timer = null
@@ -56,11 +57,11 @@ export async function runPollSession() {
 
   if (useProxy) {
     const available = (s.proxies || []).filter((p) => p.status === 'available').length
-    if (available < batches.length) {
+    if (available < 1) {
       return {
         ok: false,
         reason: 'not_enough_proxies',
-        need: batches.length,
+        need: 1,
         have: available
       }
     }
@@ -68,7 +69,7 @@ export async function runPollSession() {
 
   running = true
   const started = Date.now()
-  const assignments = batches.map((batch) => ({ batch, useProxy }))
+  const assignments = batches.map((batch) => ({ batch, useProxy: false }))
 
   console.log(
     '[Engine] Sync session:',
@@ -78,8 +79,10 @@ export async function runPollSession() {
 
   let results
   try {
+    if (useProxy) setRequestProxy({ acquire: acquireProxy, release: releaseProxy })
     results = await Promise.all(assignments.map((a) => runChannelBatch(a)))
   } finally {
+    setRequestProxy(null)
     running = false
   }
 

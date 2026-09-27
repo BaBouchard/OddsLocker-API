@@ -268,8 +268,9 @@ export class PolymarketAdapter extends BaseAdapter {
 
   async fetchLiveEvents() {
     const base = this.catalogUrl().split('?')[0].replace(/\/$/, '')
-    const pageLimit = Number(this.config.pageLimit || process.env.POLYMARKET_PAGE_LIMIT) || 100
-    const maxPages = Number(this.config.maxPages || process.env.POLYMARKET_MAX_PAGES) || 10
+    const spread = globalThis.__olSpreadFetches === true
+    const pageLimit = Number(this.config.pageLimit || process.env.POLYMARKET_PAGE_LIMIT) || (spread ? 20 : 100)
+    const maxPages = Number(this.config.maxPages || process.env.POLYMARKET_MAX_PAGES) || (pageLimit <= 25 ? 20 : 10)
 
     const fetchPage = async (page) => {
       const offset = page * pageLimit
@@ -291,9 +292,9 @@ export class PolymarketAdapter extends BaseAdapter {
       return Array.isArray(batch) ? batch : []
     }
 
-    // A few pages at once. Waiting for page 0 before the rest adds a full round trip,
-    // and page 0 is the heavy one. Stop as soon as a page comes back short.
-    const waveSize = 3
+    // Through proxies, small pages run on separate exits. On a direct link, a few
+    // large pages finish in one round trip.
+    const waveSize = Math.min(pageLimit <= 25 ? 12 : 3, maxPages)
     const all = []
     for (let start = 0; start < maxPages; start += waveSize) {
       const count = Math.min(waveSize, maxPages - start)

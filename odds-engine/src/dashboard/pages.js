@@ -124,7 +124,7 @@ export function renderPage(pageId) {
     return shell(
       'batches',
       'Batches',
-      'Books in a batch are fetched together. In proxy mode, each batch takes one proxy.',
+      'Books in a batch are fetched together. In proxy mode, each request takes its own proxy.',
       batchesHtml()
     )
   }
@@ -132,7 +132,7 @@ export function renderPage(pageId) {
     return shell(
       'proxies',
       'Proxies',
-      'Used when Settings is set to Proxy pool. One available proxy is taken per batch and released when that batch finishes.',
+      'Used when Settings is set to Proxy pool. Each request checks out its own proxy and releases it when that request finishes.',
       proxiesHtml()
     )
   }
@@ -222,7 +222,7 @@ function settingsHtml() {
     <label class="switch"><input type="radio" name="fetchMode" value="local"> Local network</label>
     <label class="switch"><input type="radio" name="fetchMode" value="proxy"> Proxy pool</label>
   </div>
-  <p style="font-size:.78rem;color:var(--muted);margin:0">Local network sends every request from this machine. Proxy pool assigns one proxy to each batch. Channels are not part of either route.</p>
+  <p style="font-size:.78rem;color:var(--muted);margin:0">Local network sends every request from this machine. Proxy pool gives each request its own proxy. Channels are not part of either route.</p>
 </div>
 <div class="panel" style="margin-bottom:1rem">
   <label>Poll interval (ms)</label>
@@ -340,6 +340,12 @@ function renderLeagues(lw){
   }).join('');
 }
 function esc(s){if(s==null)return '';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function showJson(pre, payload){
+  if(!pre||!payload) return;
+  const n=Array.isArray(payload.data)?payload.data.length:(payload.entryCount||0);
+  pre.textContent=n+' odds';
+  setTimeout(()=>{ pre.textContent=JSON.stringify(payload,null,2); }, 0);
+}
 async function refresh(){
   state=await api('/api/state');
   if(PAGE==='session') renderSession();
@@ -349,10 +355,7 @@ async function refresh(){
   if(PAGE==='live' || PAGE==='json' || PAGE==='leagues'){
     const snap=await api('/api/snapshot');
     if(PAGE==='live') renderLive(snap.data||[]);
-    if(PAGE==='json'){
-      const pre=document.getElementById('jsonPre');
-      if(pre) pre.textContent=JSON.stringify(snap,null,2);
-    }
+    if(PAGE==='json') showJson(document.getElementById('jsonPre'), snap);
     if(PAGE==='leagues') renderLeagues(state.leagueWatcher);
   }
 }
@@ -424,16 +427,17 @@ async function fetchOnce(){
     state=r.state||await api('/api/state');
     renderSession();
     renderSettings();
-    if(PAGE==='live') renderLive((r.snapshot&&r.snapshot.data)||[]);
-    const n=(r.snapshot&&r.snapshot.data)?r.snapshot.data.length:(state.snapshot?state.snapshot.entryCount:0);
+    if(PAGE==='live' && r.snapshot && Array.isArray(r.snapshot.data)) renderLive(r.snapshot.data);
+    const n=(r.snapshot&&r.snapshot.entryCount!=null)?r.snapshot.entryCount:((r.snapshot&&r.snapshot.data)?r.snapshot.data.length:(state.snapshot?state.snapshot.entryCount:0));
+    const ms=r.snapshot&&r.snapshot.durationMs;
     const errs=((r.snapshot&&r.snapshot.errors)||[]).slice(0,4).map(e=>(e.book||'*')+': '+e.error);
     if(!r.ok){
       let extra='';
-      if(r.reason==='not_enough_proxies') extra=' — need '+r.need+' available proxies (one per batch), have '+r.have;
+      if(r.reason==='not_enough_proxies') extra=' — need at least one available proxy, have '+r.have;
       else if(r.need!=null) extra=' (need '+r.need+', have '+r.have+')';
       alert('Fetch: '+(r.reason||'failed')+extra);
     }else{
-      alert('Fetched '+n+' odds'+(errs.length?'\\n'+errs.join('\\n'):''));
+      alert('Fetched '+n+' odds'+(ms!=null?' in '+(ms/1000).toFixed(1)+'s':'')+(errs.length?'\\n'+errs.join('\\n'):''));
     }
   }catch(e){
     alert('Fetch failed: '+e.message);
@@ -446,6 +450,13 @@ function connectWs(){
   const ws=new WebSocket(proto+location.host+'/ws');
   ws.onmessage=(ev)=>{
     let msg; try{msg=JSON.parse(ev.data)}catch(_){return}
+    if(msg.type==='state'){
+      if(msg.engine){state={...state,...msg.engine,configuredBooks:state?.configuredBooks};}
+      if(PAGE==='session') renderSession();
+      if(PAGE==='settings') renderSettings();
+      if(PAGE==='proxies')renderProxies();
+      return;
+    }
     if(msg.type!=='odds') return;
     if(msg.engine){state={...state,...msg.engine,configuredBooks:state?.configuredBooks};}
     if(PAGE==='session') renderSession();
@@ -454,8 +465,7 @@ function connectWs(){
     if(PAGE==='live')renderLive(msg.data);
     if(PAGE==='leagues')renderLeagues(msg.leagueWatcher);
     if(PAGE==='json'){
-      const pre=document.getElementById('jsonPre');
-      if(pre) pre.textContent=JSON.stringify({ts:msg.ts,entryCount:(msg.data||[]).length,data:msg.data,leagueWatcher:msg.leagueWatcher,engine:msg.engine},null,2);
+      showJson(document.getElementById('jsonPre'), {ts:msg.ts,entryCount:(msg.data||[]).length,durationMs:msg.engine&&msg.engine.snapshot?msg.engine.snapshot.durationMs:null,data:msg.data,leagueWatcher:msg.leagueWatcher,engine:msg.engine});
     }
   };
 }

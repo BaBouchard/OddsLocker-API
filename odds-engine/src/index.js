@@ -137,6 +137,11 @@ app.post('/api/proxies/clear', requireAuth, (req, res) => {
 
 app.post('/api/session/run', requireAuth, async (_req, res) => {
   const result = await runPollSession()
+  if (result?.snapshot && Array.isArray(result.snapshot.data)) {
+    const { data, ...snapshot } = result.snapshot
+    snapshot.entryCount = data.length
+    result.snapshot = snapshot
+  }
   res.json({ ...result, state: getPublicState() })
 })
 
@@ -191,7 +196,14 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => viewers.delete(ws))
 })
 
-onStateChange(() => broadcast())
+onStateChange((publicState) => {
+  const payload = JSON.stringify({ type: 'state', engine: publicState })
+  for (const ws of viewers) {
+    if (ws.readyState === 1) {
+      try { ws.send(payload) } catch (_) {}
+    }
+  }
+})
 setSessionCompleteHandler(() => broadcast())
 
 startScheduler()

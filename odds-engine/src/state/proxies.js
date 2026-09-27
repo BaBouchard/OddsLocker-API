@@ -100,7 +100,7 @@ export function acquireProxy() {
     row.status = 'in_use'
     row.lastUsedAt = Date.now()
     acquired = { ...row }
-  })
+  }, { silent: true })
   return acquired
 }
 
@@ -117,7 +117,7 @@ export function releaseProxy(id, { bad = false, error = '' } = {}) {
       p.status = 'available'
       p.lastError = ''
     }
-  })
+  }, { silent: true })
 }
 
 export function markProxyBad(id, error = '') {
