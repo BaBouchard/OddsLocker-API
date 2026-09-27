@@ -108,6 +108,7 @@ export async function runPollSession() {
     fetchMode: useProxy ? 'proxy' : 'local',
     durationMs: Date.now() - started,
     errors: allErrors,
+    bookReports: results.flatMap((r) => r.timings || []),
     results: results.map((r) => ({
       batchId: r.batchId,
       entries: (r.entries || []).length,

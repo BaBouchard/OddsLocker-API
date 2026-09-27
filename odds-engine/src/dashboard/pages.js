@@ -59,6 +59,14 @@ input[type=range]{width:100%}
 .btn.danger{border-color:rgba(248,113,113,.4);color:#fecaca}
 .summary{min-width:10rem;font-size:.7rem;color:var(--muted)}
 .summary strong{color:var(--text);font-weight:500}
+.analyze{margin-top:1rem}
+.analyze-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;margin-bottom:.65rem}
+.analyze-card h3{margin:0 0 .3rem;font-size:.95rem}
+.analyze-card .meta{color:var(--muted);font-size:.78rem;margin:.15rem 0}
+.blocked-tag{color:var(--danger);font-size:.85rem;font-weight:600;margin:.25rem 0}
+.miss-list{max-height:14rem;overflow:auto;margin-top:.35rem}
+.miss{font-size:.8rem;padding:.28rem 0;border-top:1px solid var(--border)}
+.miss .league{color:var(--muted);margin-left:.4rem}
 .table-wrap,.json-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;max-height:70vh;overflow:auto}
 table{width:100%;border-collapse:collapse;font-size:.78rem}
 th,td{padding:.45rem .5rem;border-top:1px solid var(--border);text-align:left}
@@ -155,8 +163,11 @@ function sessionHtml() {
     <div class="panel">
       <label>Request route</label>
       <div id="modeLabel" style="font-size:1.05rem;margin:.35rem 0 .85rem">—</div>
-      <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
-      <p style="font-size:.72rem;color:var(--muted);margin:.65rem 0 0">Runs every batch one time. Switch local network vs proxy pool in Settings.</p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
+        <button type="button" class="btn" id="btnAnalyze">Analyze batch</button>
+      </div>
+      <p style="font-size:.72rem;color:var(--muted);margin:.65rem 0 0">Fetch runs every batch once. Analyze compares the last batch to the book that returned the most games.</p>
     </div>
     <div class="panel summary">
       <div>Sessions: <strong id="sSessions">0</strong></div>
@@ -165,7 +176,8 @@ function sessionHtml() {
       <div>Proxies free: <strong id="sProxFree">—</strong></div>
     </div>
   </div>
-</div></div>`
+</div></div>
+<div id="analyzeOut" class="analyze"></div>`
 }
 
 function batchesHtml() {
@@ -367,6 +379,7 @@ function bind(){
     renderSettings();
   });
   document.getElementById('btnFetchOnce')?.addEventListener('click', ()=>fetchOnce());
+  document.getElementById('btnAnalyze')?.addEventListener('click', ()=>analyzeBatch());
   document.getElementById('btnSplit')?.addEventListener('click', async()=>{
     state=await api('/api/batches',{method:'PUT',body:JSON.stringify({count:Number(document.getElementById('batchCount').value)})});
     renderBatches();
@@ -443,6 +456,64 @@ async function fetchOnce(){
     alert('Fetch failed: '+e.message);
   }finally{
     if(btn){btn.disabled=false; btn.textContent='Fetch odds once';}
+  }
+}
+function esc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function renderAnalyze(r){
+  if(!r||!r.ok){
+    const why=r&&r.reason==='no_snapshot'?'Fetch odds once, then analyze that batch.':'Could not analyze the last batch.';
+    return '<div class="panel">'+esc(why)+'</div>';
+  }
+  let html='';
+  if(!r.baseline){
+    html+='<div class="analyze-card"><h3>No baseline</h3><div class="meta">No book returned games to compare against.</div></div>';
+  }else{
+    html+='<div class="analyze-card"><h3>Baseline: '+esc(r.baseline.name)+'</h3><div class="meta">'+r.baseline.games+' games, '+r.baseline.entries+' odds. Every other requested book is compared to this list.</div></div>';
+  }
+  const books=Array.isArray(r.books)?r.books:[];
+  for(let i=0;i<books.length;i++){
+    const b=books[i];
+    html+='<div class="analyze-card"><h3>'+esc(b.name)+'</h3>';
+    html+='<div class="meta">'+b.games+' games, '+b.entries+' odds'+(b.ms?(', '+b.ms+'ms'):'')+'</div>';
+    if(b.blocked) html+='<div class="blocked-tag">Blocked'+(b.blockReason?': '+esc(b.blockReason):'')+'</div>';
+    else if(b.timedOut) html+='<div class="blocked-tag">'+esc(b.blockReason||'Timed out before the snapshot finished')+'</div>';
+    else if(b.partialBlock) html+='<div class="blocked-tag">Part of this book was blocked: '+esc(b.partialBlock)+'</div>';
+    if(b.isBaseline){
+      html+='<div class="meta">Used as the baseline.</div>';
+    }else if(!r.baseline){
+      html+='';
+    }else if(b.blocked||b.timedOut){
+      html+='<div class="meta">Missing all '+r.baseline.games+' baseline games. Nothing came back to compare.</div>';
+    }else if(!b.missingCount){
+      html+='<div class="meta">Has every baseline game.</div>';
+    }else{
+      html+='<div class="meta">Missing '+b.missingCount+' baseline game'+(b.missingCount===1?'':'s')+'.</div>';
+      html+='<div class="miss-list">';
+      const missing=Array.isArray(b.missing)?b.missing:[];
+      for(let j=0;j<missing.length;j++){
+        const g=missing[j];
+        html+='<div class="miss">'+esc(g.label)+(g.league?' <span class="league">'+esc(g.league)+'</span>':'')+'</div>';
+      }
+      if(b.missingCount>missing.length) html+='<div class="miss">+'+(b.missingCount-missing.length)+' more</div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  }
+  return html;
+}
+async function analyzeBatch(){
+  const btn=document.getElementById('btnAnalyze');
+  const out=document.getElementById('analyzeOut');
+  if(btn){btn.disabled=true; btn.textContent='Analyzing…';}
+  try{
+    const r=await api('/api/session/analyze',{method:'POST',body:'{}'});
+    if(out) out.innerHTML=renderAnalyze(r);
+  }catch(e){
+    if(out) out.innerHTML='<div class="panel">'+esc(e.message)+'</div>';
+  }finally{
+    if(btn){btn.disabled=false; btn.textContent='Analyze batch';}
   }
 }
 function connectWs(){

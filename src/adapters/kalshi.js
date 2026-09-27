@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry, normalizeLeague } from '../schema.js'
+import { errorMeta, summarizeFlags } from '../fetch-status.js'
 
 const DEFAULT_API_BASE = 'https://external-api.kalshi.com/trade-api/v2'
 const DEFAULT_SERIES_TICKERS = [
@@ -358,14 +359,17 @@ export class KalshiAdapter extends BaseAdapter {
     const shouldDebug = process.env.DEBUG_KALSHI === '1' || process.env.DEBUG_KALSHI === 'true'
     const seriesTickers = getKalshiSeriesTickers(this.config)
 
+    const flags = []
     try {
       const seriesResults = await Promise.all(
         seriesTickers.map(async (seriesTicker) => {
           try {
             const events = await this.fetchSeriesEvents(seriesTicker)
+            flags.push({ ok: true })
             return this.buildEntries(events, seriesTicker, { sportsbook, baseUrl })
           } catch (e) {
             console.warn('[LiveOdds] Kalshi', seriesTicker, e.message)
+            flags.push(errorMeta(e))
             return []
           }
         })
@@ -387,11 +391,12 @@ export class KalshiAdapter extends BaseAdapter {
         console.warn('[LiveOdds] Kalshi 0 entries (series:', seriesTickers.length, ')')
       }
 
-      this._onOdds(allEntries, { pollRequests, fromFetchOnce: !!fromFetchOnce })
+      const status = allEntries.length === 0 ? summarizeFlags(flags) : { blocked: false, timedOut: false, blockReason: '' }
+      this._onOdds(allEntries, { pollRequests, fromFetchOnce: !!fromFetchOnce, ...status })
     } catch (e) {
       console.warn('[LiveOdds] Kalshi fetch error:', e.message)
       if (fromFetchOnce && this._onOdds) {
-        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...errorMeta(e) })
       }
     }
 

@@ -11,6 +11,7 @@ import { addProxiesFromText, removeProxy, resetBadProxies, clearAllProxies } fro
 import { startScheduler, stopScheduler, runPollSession, updateFleet, setSessionCompleteHandler } from './scheduler/engine.js'
 import { listKnownBookIds } from './workers/books.js'
 import { renderPage, renderLoginHtml } from './dashboard/pages.js'
+import { analyzeSnapshot } from './analyze-batch.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const engineRoot = path.join(__dirname, '..')
@@ -143,6 +144,16 @@ app.post('/api/session/run', requireAuth, async (_req, res) => {
     result.snapshot = snapshot
   }
   res.json({ ...result, state: getPublicState() })
+})
+
+app.post('/api/session/analyze', requireAuth, (_req, res) => {
+  const snap = getFullSnapshot()
+  const reports = Array.isArray(snap?.bookReports) ? snap.bookReports : []
+  const rows = Array.isArray(snap?.data) ? snap.data : null
+  if (!snap || !rows || (rows.length === 0 && reports.length === 0)) {
+    return res.json({ ok: false, reason: 'no_snapshot' })
+  }
+  res.json(analyzeSnapshot(snap))
 })
 
 app.get('/api/snapshot', requireAuth, (_req, res) => {

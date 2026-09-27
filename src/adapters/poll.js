@@ -1,5 +1,6 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry, normalizeLeague } from '../schema.js'
+import { blockedMeta, errorMeta } from '../fetch-status.js'
 
 const EXCLUDED_SPORTS = ['golf', 'darts']
 
@@ -71,7 +72,13 @@ export class PollAdapter extends BaseAdapter {
     const leagueKey = this._leagueKey
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(10000), ...this.config.fetchOptions })
-      const data = await res.json()
+      const text = await res.text()
+      if (!res.ok) {
+        console.warn('[LiveOdds] Poll', res.status, res.statusText, text.slice(0, 160))
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...blockedMeta(res.status, text) })
+        return
+      }
+      const data = text ? JSON.parse(text) : null
       const baseEntries = this.parseResponse(data, leagueKey) || []
 
       const liveEvents = Array.isArray(data.liveEvents) ? data.liveEvents : []
@@ -100,6 +107,7 @@ export class PollAdapter extends BaseAdapter {
       this._onOdds(allEntries, { pollRequests, fromFetchOnce: true })
     } catch (e) {
       console.warn('[LiveOdds] Poll (with extras) error:', e.message)
+      if (this._onOdds) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...errorMeta(e) })
     }
   }
   async _tick(fromFetchOnce = false) {
@@ -110,14 +118,23 @@ export class PollAdapter extends BaseAdapter {
     const leagueKey = this._leagueKey
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(10000), ...this.config.fetchOptions })
-      const data = await res.json()
-      const entries = this.parseResponse(data, leagueKey) || []
-      if (fromFetchOnce) {
-        this._onOdds(entries, { pollRequests: 1, fromFetchOnce: true })
-      } else if (entries.length) {
-        this._onOdds(entries)
+      const text = await res.text()
+      if (!res.ok) {
+        console.warn('[LiveOdds] Poll', res.status, res.statusText, text.slice(0, 160))
+        if (fromFetchOnce) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...blockedMeta(res.status, text) })
+      } else {
+        const data = text ? JSON.parse(text) : null
+        const entries = this.parseResponse(data, leagueKey) || []
+        if (fromFetchOnce) {
+          this._onOdds(entries, { pollRequests: 1, fromFetchOnce: true })
+        } else if (entries.length) {
+          this._onOdds(entries)
+        }
       }
-    } catch (e) { console.warn('[LiveOdds] Poll error:', e.message) }
+    } catch (e) {
+      console.warn('[LiveOdds] Poll error:', e.message)
+      if (fromFetchOnce && this._onOdds) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...errorMeta(e) })
+    }
     if (this._running && this._autoPoll) this._timer = setTimeout(() => this._tick(), interval)
   }
   parseResponse(data, leagueKey) {

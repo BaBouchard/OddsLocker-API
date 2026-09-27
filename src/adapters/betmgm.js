@@ -1,5 +1,6 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
+import { blockedMeta, errorMeta } from '../fetch-status.js'
 
 /** Map BetMGM market name/label to normalized market_type. We scrape every market; map known ones for consistency. */
 function toMarketType(name, label = '') {
@@ -96,7 +97,7 @@ export class BetMGMAdapter extends BaseAdapter {
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] BetMGM API', res.status, res.statusText, text.slice(0, 200))
-        if (fromFetchOnce) this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
+        if (fromFetchOnce) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...blockedMeta(res.status, text) })
         if (this._running && this._autoPoll) this._timer = setTimeout(() => this._tick(), interval)
         return
       }
@@ -116,7 +117,7 @@ export class BetMGMAdapter extends BaseAdapter {
       }
     } catch (e) {
       console.warn('[LiveOdds] BetMGM fetch error:', e.message)
-      if (fromFetchOnce) this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
+      if (fromFetchOnce) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...errorMeta(e) })
     }
 
     if (this._running && this._autoPoll) this._timer = setTimeout(() => this._tick(), interval)

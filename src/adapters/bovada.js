@@ -1,5 +1,6 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
+import { blockedMeta, errorMeta } from '../fetch-status.js'
 import { buildBovadaLeagueWatcher } from '../bovada-league-watcher.js'
 
 /** Bovada sport code (ev.sport) -> normalized sport slug. Use event-level so boxing/MMA etc. are not labeled as NBA. */
@@ -85,7 +86,7 @@ export class BovadaAdapter extends BaseAdapter {
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] Bovada API', res.status, res.statusText, text.slice(0, 200))
-        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...blockedMeta(res.status, text) })
         return
       }
       let data
@@ -106,6 +107,8 @@ export class BovadaAdapter extends BaseAdapter {
       this._onOdds(entries, { pollRequests: 1, leagueWatcher, fromFetchOnce: true })
     } catch (e) {
       console.warn('[LiveOdds] Bovada fetch error:', e.message)
+      const status = errorMeta(e)
+      if (status.blocked || status.timedOut) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...status })
     }
   }
 

@@ -1,5 +1,6 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
+import { blockedMeta, errorMeta } from '../fetch-status.js'
 
 /** Convert decimal odds to American. */
 function decimalToAmerican(decimal) {
@@ -90,7 +91,7 @@ export class EightEightEightAdapter extends BaseAdapter {
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] 888Sport API', res.status, res.statusText, text.slice(0, 200))
-        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...blockedMeta(res.status, text) })
         return
       }
       let data
@@ -105,6 +106,8 @@ export class EightEightEightAdapter extends BaseAdapter {
       this._onOdds(entries, { pollRequests: 1, fromFetchOnce: true })
     } catch (e) {
       console.warn('[LiveOdds] 888Sport fetch error:', e.message)
+      const status = errorMeta(e)
+      if (status.blocked || status.timedOut) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...status })
     }
   }
 

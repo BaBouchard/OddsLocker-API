@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry, normalizeLeague } from '../schema.js'
+import { blockedMeta, errorMeta } from '../fetch-status.js'
 
 /** Map FanDuel marketType / marketName to normalized market_type slug. */
 function toMarketType(marketType, marketName) {
@@ -99,7 +100,7 @@ export class FanDuelAdapter extends BaseAdapter {
       if (!res.ok) {
         console.warn('[LiveOdds] FanDuel API', res.status, res.statusText, text.slice(0, 200))
         if (shouldDebug) fs.writeFileSync(debugPath, JSON.stringify({ status: res.status, statusText: res.statusText, body: text }, null, 2), 'utf8')
-        this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
+        this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...blockedMeta(res.status, text) })
         return
       }
       let data
@@ -127,6 +128,8 @@ export class FanDuelAdapter extends BaseAdapter {
       this._onOdds(entries, { pollRequests: 1, fromFetchOnce: true })
     } catch (e) {
       console.warn('[LiveOdds] FanDuel fetch error:', e.message)
+      const status = errorMeta(e)
+      if (status.blocked || status.timedOut) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...status })
       if (process.env.DEBUG_FANDUEL === '1' || process.env.DEBUG_FANDUEL === 'true') {
         console.warn('[LiveOdds] FanDuel: set FANDUEL_REGION in .env (e.g. US-NY) if you see 400 Bad Request')
       }

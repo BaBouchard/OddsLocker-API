@@ -1,5 +1,6 @@
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry } from '../schema.js'
+import { blockedMeta, errorMeta, summarizeFlags } from '../fetch-status.js'
 
 /** Convert decimal odds to American. */
 function decimalToAmerican(decimal) {
@@ -77,6 +78,7 @@ export class PointsBetAdapter extends BaseAdapter {
     }
     if (cookie) headers.Cookie = cookie
 
+    const flags = []
     const settled = await Promise.all(
       sportUrls.map(async ({ sport, url }) => {
         try {
@@ -87,6 +89,7 @@ export class PointsBetAdapter extends BaseAdapter {
           const text = await res.text()
           if (!res.ok) {
             console.warn('[LiveOdds] PointsBet', sport, res.status, res.statusText, text.slice(0, 150))
+            flags.push(blockedMeta(res.status, text))
             return []
           }
           let data
@@ -94,6 +97,7 @@ export class PointsBetAdapter extends BaseAdapter {
             data = text ? JSON.parse(text) : {}
           } catch {
             console.warn('[LiveOdds] PointsBet', sport, 'non-JSON response')
+            flags.push(blockedMeta(res.status, text))
             return []
           }
           const entries = this.parseResponse(data, { sportsbook, sport, baseUrl })
@@ -102,16 +106,19 @@ export class PointsBetAdapter extends BaseAdapter {
             const liveCount = Array.isArray(events) ? events.filter((e) => e.isLive === true).length : 0
             console.warn('[LiveOdds] PointsBet', sport, '0 entries (events:', events.length, ', live:', liveCount, ')')
           }
+          flags.push({ ok: true })
           return entries
         } catch (e) {
           console.warn('[LiveOdds] PointsBet', sport, 'fetch error:', e.message)
+          flags.push(errorMeta(e))
           return []
         }
       })
     )
     const allEntries = settled.flat()
+    const status = allEntries.length === 0 ? summarizeFlags(flags) : { blocked: false, timedOut: false, blockReason: '' }
 
-    this._onOdds(allEntries, { pollRequests: sportUrls.length, fromFetchOnce: true })
+    this._onOdds(allEntries, { pollRequests: sportUrls.length, fromFetchOnce: true, ...status })
   }
 
   parseResponse(data, opts = {}) {

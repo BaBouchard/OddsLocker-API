@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry, normalizeLeague } from '../schema.js'
+import { blockedMeta, errorMeta, summarizeFlags } from '../fetch-status.js'
 
 const DEFAULT_SECTIONS = ['baseball', 'tennis', 'basketball', 'ebasketball']
 
@@ -202,6 +203,7 @@ export class TheScoreAdapter extends BaseAdapter {
 
   async _fetchSection(sectionSlug, url, opts = {}) {
     const { sportsbook, baseUrl, shouldDebug, debugPath, debugAll } = opts
+    this._sectionFlags = this._sectionFlags || []
     const res = await fetch(url, {
       method: 'GET',
       signal: AbortSignal.timeout(15000),
@@ -220,6 +222,7 @@ export class TheScoreAdapter extends BaseAdapter {
       if (shouldDebug && debugAll) {
         fs.writeFileSync(debugPath, JSON.stringify({ section: sectionSlug, status: res.status, statusText: res.statusText, body: text }, null, 2), 'utf8')
       }
+      this._sectionFlags.push(blockedMeta(res.status, text))
       return []
     }
 
@@ -228,6 +231,7 @@ export class TheScoreAdapter extends BaseAdapter {
       data = text ? JSON.parse(text) : {}
     } catch (e) {
       console.warn('[LiveOdds] The Score Bet API', sectionSlug, 'non-JSON:', text.slice(0, 200))
+      this._sectionFlags.push({ ok: true })
       return []
     }
 
@@ -240,6 +244,7 @@ export class TheScoreAdapter extends BaseAdapter {
         console.warn('[LiveOdds] The Score Bet GraphQL errors:', sectionSlug, data.errors[0]?.message || data.errors[0])
         this._authWarned = true
       }
+      this._sectionFlags.push({ ok: true })
       return []
     }
 
@@ -247,10 +252,12 @@ export class TheScoreAdapter extends BaseAdapter {
     const actualSection = data.data?.page?.defaultChild?.id
     if (actualSection && actualSection !== expectedSection) {
       console.warn('[LiveOdds] The Score Bet', sectionSlug, 'section unavailable (API returned', actualSection + '), skipping')
+      this._sectionFlags.push({ ok: true })
       return []
     }
 
     this._authWarned = false
+    this._sectionFlags.push({ ok: true })
     return this.parseResponse(data, { sportsbook, baseUrl, sectionSlug })
   }
 
@@ -265,6 +272,7 @@ export class TheScoreAdapter extends BaseAdapter {
     const shouldDebug = process.env.DEBUG_THESCORE === '1' || process.env.DEBUG_THESCORE === 'true'
     const debugPath = path.join(process.cwd(), 'debug-thescore-response.json')
 
+    this._sectionFlags = []
     try {
       const settled = await Promise.all(
         sectionUrls.map(async ({ slug, url }) => {
@@ -278,15 +286,17 @@ export class TheScoreAdapter extends BaseAdapter {
             })
           } catch (e) {
             console.warn('[LiveOdds] The Score Bet', slug, 'fetch error:', e.message)
+            this._sectionFlags.push(errorMeta(e))
             return []
           }
         })
       )
       const allEntries = settled.flat()
-      this._onOdds(allEntries, { pollRequests: sectionUrls.length, fromFetchOnce: !!fromFetchOnce })
+      const status = allEntries.length === 0 ? summarizeFlags(this._sectionFlags) : { blocked: false, timedOut: false, blockReason: '' }
+      this._onOdds(allEntries, { pollRequests: sectionUrls.length, fromFetchOnce: !!fromFetchOnce, ...status })
     } catch (e) {
       console.warn('[LiveOdds] The Score Bet fetch error:', e.message)
-      if (fromFetchOnce && this._onOdds) this._onOdds([], { pollRequests: 1, fromFetchOnce: true })
+      if (fromFetchOnce && this._onOdds) this._onOdds([], { pollRequests: 1, fromFetchOnce: true, ...errorMeta(e) })
     }
 
     if (this._running && this._autoPoll) this._timer = setTimeout(() => this._tick(), interval)

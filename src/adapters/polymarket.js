@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { BaseAdapter } from './base.js'
 import { createNormalizedEntry, normalizeLeague } from '../schema.js'
+import { errorMeta, summarizeFlags } from '../fetch-status.js'
 
 const DEFAULT_CATALOG_URL = 'https://gamma-api.polymarket.com/events'
 const DEFAULT_BOOKS_URL = 'https://clob.polymarket.com/books'
@@ -296,13 +297,20 @@ export class PolymarketAdapter extends BaseAdapter {
     // large pages finish in one round trip.
     const waveSize = Math.min(pageLimit <= 25 ? 12 : 3, maxPages)
     const all = []
+    this._catalogFlags = []
     for (let start = 0; start < maxPages; start += waveSize) {
       const count = Math.min(waveSize, maxPages - start)
       const pages = await Promise.all(
         Array.from({ length: count }, (_, i) =>
           fetchPage(start + i).then(
-            (batch) => ({ batch }),
-            () => ({ batch: null })
+            (batch) => {
+              this._catalogFlags.push({ ok: true })
+              return { batch }
+            },
+            (err) => {
+              this._catalogFlags.push(errorMeta(err))
+              return { batch: null }
+            }
           )
         )
       )
@@ -477,11 +485,12 @@ export class PolymarketAdapter extends BaseAdapter {
         console.warn('[LiveOdds] Polymarket 0 entries (live events:', events.length, ')')
       }
 
-      this._onOdds(entries, { pollRequests: 1, fromFetchOnce: !!fromFetchOnce })
+      const status = entries.length === 0 ? summarizeFlags(this._catalogFlags) : { blocked: false, timedOut: false, blockReason: '' }
+      this._onOdds(entries, { pollRequests: 1, fromFetchOnce: !!fromFetchOnce, ...status })
     } catch (e) {
       console.warn('[LiveOdds] Polymarket fetch error:', e.message)
       if (fromFetchOnce && this._onOdds) {
-        this._onOdds([], { pollRequests: 2, fromFetchOnce: true })
+        this._onOdds([], { pollRequests: 2, fromFetchOnce: true, ...errorMeta(e) })
       }
     }
 
