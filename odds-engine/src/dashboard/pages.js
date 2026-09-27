@@ -166,8 +166,9 @@ function sessionHtml() {
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
         <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
         <button type="button" class="btn" id="btnAnalyze">Analyze batch</button>
+        <button type="button" class="btn" id="btnDownload">Download spreadsheet</button>
       </div>
-      <p style="font-size:.72rem;color:var(--muted);margin:.65rem 0 0">Fetch runs every batch once. Analyze compares the last batch to the book that returned the most games.</p>
+      <p style="font-size:.72rem;color:var(--muted);margin:.65rem 0 0">Fetch runs every batch once. Analyze compares the last batch to the book with the most games. Download spreadsheet saves that batch as an Excel file.</p>
     </div>
     <div class="panel summary">
       <div>Sessions: <strong id="sSessions">0</strong></div>
@@ -214,7 +215,10 @@ function proxiesHtml() {
 function liveHtml() {
   return `<div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-bottom:.65rem">
   <div class="section-title" style="margin:0">Live feed <span id="liveCount" style="color:var(--accent)"></span></div>
-  <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
+  <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+    <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
+    <button type="button" class="btn" id="btnDownload">Download spreadsheet</button>
+  </div>
 </div>
 <div class="table-wrap"><table><thead><tr><th>Sport</th><th>League</th><th>Event</th><th>Book</th><th>Market</th><th>Outcome</th><th>Odds</th></tr></thead><tbody id="liveBody"></tbody></table></div>`
 }
@@ -380,6 +384,7 @@ function bind(){
   });
   document.getElementById('btnFetchOnce')?.addEventListener('click', ()=>fetchOnce());
   document.getElementById('btnAnalyze')?.addEventListener('click', ()=>analyzeBatch());
+  document.getElementById('btnDownload')?.addEventListener('click', ()=>downloadSheet());
   document.getElementById('btnSplit')?.addEventListener('click', async()=>{
     state=await api('/api/batches',{method:'PUT',body:JSON.stringify({count:Number(document.getElementById('batchCount').value)})});
     renderBatches();
@@ -502,6 +507,31 @@ function renderAnalyze(r){
     html+='</div>';
   }
   return html;
+}
+async function downloadSheet(){
+  const btn=document.getElementById('btnDownload');
+  if(btn){btn.disabled=true; btn.textContent='Preparing…';}
+  try{
+    const res=await fetch('/api/snapshot.xlsx');
+    if(!res.ok){
+      alert('Fetch odds once, then download the spreadsheet.');
+      return;
+    }
+    const blob=await res.blob();
+    const cd=res.headers.get('Content-Disposition')||'';
+    const match=cd.match(/filename="([^"]+)"/);
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=match?match[1]:'oddslocker-odds.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }catch(e){
+    alert('Download failed: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false; btn.textContent='Download spreadsheet';}
+  }
 }
 async function analyzeBatch(){
   const btn=document.getElementById('btnAnalyze');

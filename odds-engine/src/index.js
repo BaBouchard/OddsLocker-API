@@ -12,6 +12,7 @@ import { startScheduler, stopScheduler, runPollSession, updateFleet, setSessionC
 import { listKnownBookIds } from './workers/books.js'
 import { renderPage, renderLoginHtml } from './dashboard/pages.js'
 import { analyzeSnapshot } from './analyze-batch.js'
+import { snapshotToXlsx } from './export-xlsx.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const engineRoot = path.join(__dirname, '..')
@@ -158,6 +159,19 @@ app.post('/api/session/analyze', requireAuth, (_req, res) => {
 
 app.get('/api/snapshot', requireAuth, (_req, res) => {
   res.json(getFullSnapshot() || { data: [], ts: null })
+})
+
+app.get('/api/snapshot.xlsx', requireAuth, (_req, res) => {
+  const snap = getFullSnapshot()
+  const rows = Array.isArray(snap?.data) ? snap.data : []
+  if (!rows.length) {
+    return res.status(404).json({ ok: false, reason: 'no_snapshot' })
+  }
+  const stamp = new Date(snap.ts || Date.now()).toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const body = snapshotToXlsx(rows)
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  res.setHeader('Content-Disposition', `attachment; filename="oddslocker-odds-${stamp}.xlsx"`)
+  res.send(body)
 })
 
 app.get('/health', (_req, res) => {

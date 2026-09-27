@@ -1,4 +1,4 @@
-# OddsLocker Scraper v2.0.6 (Windows desktop)
+# OddsLocker Scraper v2.0.7 (Windows desktop)
 
 Electron shell around `odds-engine` (channel / batch / residential proxy control UI).
 
@@ -26,7 +26,7 @@ npm run dist
 
 Output:
 
-- `desktop-v2/release/OddsLocker-Scraper-Setup-2.0.6.exe`
+- `desktop-v2/release/OddsLocker-Scraper-Setup-2.0.7.exe`
 
 Same logo as v1 (`desktop/assets` icons). App id remains `com.oddslocker.scraper`.
 
