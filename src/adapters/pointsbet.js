@@ -83,7 +83,7 @@ export class PointsBetAdapter extends BaseAdapter {
       sportUrls.map(async ({ sport, url }) => {
         try {
           const res = await fetch(url, {
-            signal: AbortSignal.timeout(8000),
+            signal: AbortSignal.timeout(60000),
             headers: { ...headers }
           })
           const text = await res.text()

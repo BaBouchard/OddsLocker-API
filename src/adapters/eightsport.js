@@ -85,7 +85,7 @@ export class EightEightEightAdapter extends BaseAdapter {
     try {
       const res = await fetch(url, {
         method: 'GET',
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(60000),
         headers: { ...headers, ...this.config.fetchOptions?.headers }
       })
       const text = await res.text()

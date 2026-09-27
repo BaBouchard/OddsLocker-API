@@ -217,7 +217,7 @@ export class KalshiAdapter extends BaseAdapter {
       if (cursor) params.set('cursor', cursor)
       const url = `${base}/events?${params}`
       const res = await fetch(url, {
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(60000),
         headers: { Accept: 'application/json' }
       })
       const text = await res.text()

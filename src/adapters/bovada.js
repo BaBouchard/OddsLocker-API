@@ -80,7 +80,7 @@ export class BovadaAdapter extends BaseAdapter {
         'Accept-Language': 'en-US,en;q=0.9'
       }
       const res = await fetch(url, {
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(60000),
         headers: { ...headers, ...this.config.fetchOptions?.headers }
       })
       const text = await res.text()

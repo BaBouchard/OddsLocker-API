@@ -71,7 +71,7 @@ export class PollAdapter extends BaseAdapter {
     }
     const leagueKey = this._leagueKey
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(10000), ...this.config.fetchOptions })
+      const res = await fetch(url, { signal: AbortSignal.timeout(60000), ...this.config.fetchOptions })
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] Poll', res.status, res.statusText, text.slice(0, 160))
@@ -90,7 +90,7 @@ export class PollAdapter extends BaseAdapter {
         if (!ev || ev.id == null) return []
         const detailUrl = betTemplate.replace('{eventId}', String(ev.id))
         try {
-          const dRes = await fetch(detailUrl, { signal: AbortSignal.timeout(10000), ...this.config.fetchOptions })
+          const dRes = await fetch(detailUrl, { signal: AbortSignal.timeout(60000), ...this.config.fetchOptions })
           const dData = await dRes.json()
           return this.parseResponse(dData, leagueKey) || []
         } catch (e) {
@@ -117,7 +117,7 @@ export class PollAdapter extends BaseAdapter {
     const interval = Number(this.config.pollIntervalMs || process.env.POLL_INTERVAL_MS) || 2000
     const leagueKey = this._leagueKey
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(10000), ...this.config.fetchOptions })
+      const res = await fetch(url, { signal: AbortSignal.timeout(60000), ...this.config.fetchOptions })
       const text = await res.text()
       if (!res.ok) {
         console.warn('[LiveOdds] Poll', res.status, res.statusText, text.slice(0, 160))

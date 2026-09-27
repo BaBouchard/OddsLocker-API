@@ -117,7 +117,7 @@ export class FanDuelAdapter extends BaseAdapter {
       requests.map(async ({ sport, url }) => {
         try {
           const res = await fetch(url, {
-            signal: AbortSignal.timeout(15000),
+            signal: AbortSignal.timeout(60000),
             headers,
             ...this.config.fetchOptions
           })

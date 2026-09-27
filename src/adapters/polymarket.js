@@ -277,7 +277,7 @@ export class PolymarketAdapter extends BaseAdapter {
       const offset = page * pageLimit
       const url = `${base}?live=true&active=true&closed=false&limit=${pageLimit}&offset=${offset}`
       const res = await fetch(url, {
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(60000),
         headers: { Accept: 'application/json' }
       })
       const text = await res.text()
@@ -347,7 +347,7 @@ export class PolymarketAdapter extends BaseAdapter {
         const body = JSON.stringify(chunk.map((token_id) => ({ token_id })))
         const res = await fetch(url, {
           method: 'POST',
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(60000),
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',

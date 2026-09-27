@@ -206,7 +206,7 @@ export class TheScoreAdapter extends BaseAdapter {
     this._sectionFlags = this._sectionFlags || []
     const res = await fetch(url, {
       method: 'GET',
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(60000),
       headers: buildHeaders(this.config),
       ...this.config.fetchOptions
     })

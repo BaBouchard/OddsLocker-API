@@ -91,7 +91,7 @@ export class BetMGMAdapter extends BaseAdapter {
       }
       if (cookie) headers.Cookie = cookie
       const res = await fetch(url, {
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(60000),
         headers: { ...headers, ...this.config.fetchOptions?.headers }
       })
       const text = await res.text()
