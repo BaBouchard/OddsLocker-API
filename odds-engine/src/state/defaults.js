@@ -7,7 +7,8 @@ export const DEFAULT_BOOKS = [
   '888sport',
   'thescore',
   'polymarket',
-  'kalshi'
+  'kalshi',
+  'sportsbetting'
 ]
 
 export function createDefaultState() {
@@ -27,6 +28,7 @@ export function createDefaultState() {
   }))
   return {
     rev: 1,
+    booksRev: 2,
     updatedAt: now,
     fleet: {
       autoPoll: process.env.AUTO_POLL === 'true' || process.env.AUTO_POLL === '1',

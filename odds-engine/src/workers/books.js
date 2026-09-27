@@ -162,6 +162,19 @@ export function discoverConfiguredBooks() {
       }
     })
   }
+  if (process.env.SPORTSBETTING_ENABLED !== '0' && process.env.SPORTSBETTING_ENABLED !== 'false') {
+    books.push({
+      bookId: 'sportsbetting',
+      name: process.env.SPORTSBETTING_NAME || 'SportsBetting.ag',
+      adapter: 'sportsbetting',
+      config: {
+        bookId: 'sportsbetting',
+        sportsbookName: process.env.SPORTSBETTING_NAME || 'SportsBetting.ag',
+        bookmakerBaseUrl: process.env.SPORTSBETTING_BOOKMAKER_BASE_URL || 'https://www.sportsbetting.ag',
+        host: process.env.SPORTSBETTING_HOST || 'api.sportsbetting.ag'
+      }
+    })
+  }
   if (
     process.env.KALSHI_ENABLED === '1' ||
     process.env.KALSHI_ENABLED === 'true' ||
@@ -212,6 +225,8 @@ export async function getAdapter(bookId) {
     Adapter = (await load('adapters/polymarket.js')).PolymarketAdapter
   } else if (cfg.adapter === 'kalshi') {
     Adapter = (await load('adapters/kalshi.js')).KalshiAdapter
+  } else if (cfg.adapter === 'sportsbetting') {
+    Adapter = (await load('adapters/sportsbetting.js')).SportsBettingAdapter
   } else {
     Adapter = (await load('adapters/poll.js')).PollAdapter
   }

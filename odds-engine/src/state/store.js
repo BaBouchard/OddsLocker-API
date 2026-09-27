@@ -38,11 +38,23 @@ export function loadState() {
 
 function migrateState(raw) {
   const base = createDefaultState()
+  const batches = Array.isArray(raw.batches) && raw.batches.length
+    ? raw.batches.map((b) => ({ ...b, books: [...(b.books || [])] }))
+    : base.batches
+  // booksRev 2 adds SportsBetting.ag once. Removing it later stays removed.
+  if ((raw.booksRev || 1) < 2 && batches.length) {
+    const known = new Set(batches.flatMap((b) => b.books || []))
+    if (!known.has('sportsbetting')) {
+      const target = batches.find((b) => /all books/i.test(b.name || '')) || batches[0]
+      target.books = [...(target.books || []), 'sportsbetting']
+    }
+  }
   return {
     ...base,
     ...raw,
+    booksRev: Math.max(2, raw.booksRev || 1),
     channels: Array.isArray(raw.channels) && raw.channels.length ? raw.channels : base.channels,
-    batches: Array.isArray(raw.batches) && raw.batches.length ? raw.batches : base.batches,
+    batches,
     proxies: Array.isArray(raw.proxies) ? raw.proxies : [],
     fleet: {
       ...base.fleet,

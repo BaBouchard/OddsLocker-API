@@ -46,9 +46,27 @@ function isAbort(error) {
   return name === 'AbortError' || name === 'TimeoutError'
 }
 
+export async function withAcquiredProxy(fn) {
+  if (!requestProxy) return fn(null)
+  const proxy = await takeProxy()
+  try {
+    const result = await fn(proxy.url)
+    finishProxy(proxy.id, { bad: false, error: '' })
+    return result
+  } catch (e) {
+    const msg = e.message || String(e)
+    finishProxy(proxy.id, {
+      bad: !isAbort(e) && /407|ECONNREFUSED|ETIMEDOUT|ECONNRESET|tunnel|proxy/i.test(msg),
+      error: isAbort(e) ? '' : msg
+    })
+    throw e
+  }
+}
+
 export function setRequestProxy(hooks) {
   requestProxy = hooks
   globalThis.__olSpreadFetches = !!hooks
+  globalThis.__olWithProxy = hooks ? withAcquiredProxy : null
   if (!hooks) {
     while (proxyWaiters.length) {
       proxyWaiters.shift().reject(new Error('Proxy session ended'))

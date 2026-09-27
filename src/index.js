@@ -18,6 +18,7 @@ import { EightEightEightAdapter } from './adapters/eightsport.js'
 import { TheScoreAdapter } from './adapters/thescore.js'
 import { PolymarketAdapter } from './adapters/polymarket.js'
 import { KalshiAdapter } from './adapters/kalshi.js'
+import { SportsBettingAdapter } from './adapters/sportsbetting.js'
 import { MockAdapter } from './adapters/mock.js'
 import { ScrapeAdapter } from './adapters/scrape.js'
 import { mergeSnapshotWithPersistentCache } from './league-watcher-cache.js'
@@ -197,6 +198,19 @@ function getBookConfigs() {
         marketTypes: process.env.POLYMARKET_MARKET_TYPES || null,
         pageLimit: process.env.POLYMARKET_PAGE_LIMIT || null,
         maxPages: process.env.POLYMARKET_MAX_PAGES || null
+      }
+    })
+  }
+  if (process.env.SPORTSBETTING_ENABLED !== '0' && process.env.SPORTSBETTING_ENABLED !== 'false') {
+    books.push({
+      bookId: 'sportsbetting',
+      name: process.env.SPORTSBETTING_NAME || 'SportsBetting.ag',
+      adapter: 'sportsbetting',
+      config: {
+        bookId: 'sportsbetting',
+        sportsbookName: process.env.SPORTSBETTING_NAME || 'SportsBetting.ag',
+        bookmakerBaseUrl: process.env.SPORTSBETTING_BOOKMAKER_BASE_URL || 'https://www.sportsbetting.ag',
+        host: process.env.SPORTSBETTING_HOST || 'api.sportsbetting.ag'
       }
     })
   }
@@ -387,7 +401,9 @@ async function main() {
                     ? new PolymarketAdapter(book.config)
                     : book.adapter === 'kalshi'
                       ? new KalshiAdapter(book.config)
-                      : new PollAdapter(book.config)
+                      : book.adapter === 'sportsbetting'
+                        ? new SportsBettingAdapter(book.config)
+                        : new PollAdapter(book.config)
       const bookKey = book.config.sportsbookName
       adapters.push(adapter)
       await adapter.start(LEAGUE_KEY, (entries, meta) => {
