@@ -8,6 +8,8 @@ const DEFAULT_CATALOG_URL = 'https://gamma-api.polymarket.com/events'
 const DEFAULT_BOOKS_URL = 'https://clob.polymarket.com/books'
 const DEFAULT_MARKET_TYPES = ['moneyline', 'spreads', 'totals']
 const BOOK_BATCH_SIZE = 500
+/** Ignore a one-lot or dust ask. It is not a price you can bet. */
+const MIN_ASK_SHARES = 10
 
 const SPORT_SLUG_MAP = {
   mlb: 'baseball',
@@ -175,26 +177,19 @@ export function resolveLineValue(market, marketType, outcomeName) {
 }
 
 /**
- * Executable share price for a 2-way market from the catalog quote.
- * Outcome 0 is the posted best ask. Outcome 1 is the other side's ask,
- * which is the complement of the best bid. Matches the order book within a cent
- * and avoids a second round trip per snapshot.
+ * Catalog ask for the first outcome only. A crossed quote (bid above ask) is dropped.
+ * The other outcome is not priced from the bid.
  */
 export function gammaOutcomePrice(market, outcomeIndex) {
-  if (outcomeIndex === 0) {
-    const ask = Number(market?.bestAsk)
-    if (ask > 0 && ask < 1) return ask
-    return null
-  }
-  if (outcomeIndex === 1) {
-    const bid = Number(market?.bestBid)
-    if (bid > 0 && bid < 1) return Math.round((1 - bid) * 10000) / 10000
-    return null
-  }
-  return null
+  if (outcomeIndex !== 0) return null
+  const ask = Number(market?.bestAsk)
+  const bid = Number(market?.bestBid)
+  if (!(ask > 0 && ask < 1)) return null
+  if (bid > 0 && bid < 1 && bid > ask) return null
+  return ask
 }
 
-/** Top-of-book ask: executable buy price + share size at that price. */
+/** Top-of-book ask you can buy, with enough size to be a real price. */
 export function extractTopAsk(book) {
   if (!book?.asks?.length) return null
   const asks = [...book.asks].sort((a, b) => Number(a.price) - Number(b.price))
@@ -202,13 +197,45 @@ export function extractTopAsk(book) {
   if (!top?.price) return null
   const price = Number(top.price)
   if (!price || price <= 0 || price >= 1) return null
+  let bestBid = null
+  for (const bid of Array.isArray(book.bids) ? book.bids : []) {
+    const p = Number(bid?.price)
+    if (p > 0 && (bestBid == null || p > bestBid)) bestBid = p
+  }
+  if (bestBid != null && bestBid > price) return null
   const size = top.size != null ? Number(top.size) : null
-  const askSize = size != null && !Number.isNaN(size) && size > 0 ? size : null
+  if (size == null || Number.isNaN(size) || size < MIN_ASK_SHARES) return null
   return {
     price,
-    size: askSize,
-    max_stake_usd: askSize != null ? price * askSize : null
+    size,
+    max_stake_usd: price * size
   }
+}
+
+/** Token ids whose ask we may buy. The No side of a Yes/No market is skipped. */
+function tradableTokenIds(events, allowedTypes) {
+  const allowed = new Set(allowedTypes)
+  const ids = []
+  for (const event of events || []) {
+    if (event.live !== true || event.closed === true) continue
+    if (!(event.id || event.slug)) continue
+    for (const market of event.markets || []) {
+      if (!market || market.active === false || market.closed === true) continue
+      if (market.enableOrderBook === false) continue
+      const sportsType = (market.sportsMarketType || '').toLowerCase()
+      if (!sportsType || !allowed.has(sportsType)) continue
+      const outcomes = parseJsonArrayField(market.outcomes)
+      const tokenIds = parseJsonArrayField(market.clobTokenIds)
+      if (outcomes.length === 0 || outcomes.length !== tokenIds.length) continue
+      const isYesNo = outcomes.length === 2 && outcomes.includes('Yes') && outcomes.includes('No')
+      for (let i = 0; i < outcomes.length; i++) {
+        if (isYesNo && outcomes[i] === 'No') continue
+        if (!resolveOutcomeName(market, i, outcomes)) continue
+        if (tokenIds[i] != null) ids.push(String(tokenIds[i]))
+      }
+    }
+  }
+  return [...new Set(ids)]
 }
 
 /** Polymarket: Gamma catalog (live events) + CLOB order books (top ask + size). */
@@ -358,13 +385,15 @@ export class PolymarketAdapter extends BaseAdapter {
         })
         const text = await res.text()
         if (!res.ok) {
-          throw new Error(`CLOB books ${res.status}: ${text.slice(0, 200)}`)
+          console.warn('[LiveOdds] Polymarket CLOB', res.status, text.slice(0, 160))
+          return
         }
         let books
         try {
           books = text ? JSON.parse(text) : []
         } catch {
-          throw new Error('CLOB books returned non-JSON')
+          console.warn('[LiveOdds] Polymarket CLOB returned non-JSON')
+          return
         }
         if (!Array.isArray(books)) return
         for (const book of books) {
@@ -380,7 +409,7 @@ export class PolymarketAdapter extends BaseAdapter {
   }
 
   buildEntries(events, opts = {}) {
-    const { sportsbook, baseUrl } = opts
+    const { sportsbook, baseUrl, askByToken = {} } = opts
     const allowedTypes = new Set(getPolymarketMarketTypes(this.config))
     const entries = []
     const seenTokens = new Set()
@@ -420,10 +449,11 @@ export class PolymarketAdapter extends BaseAdapter {
 
           const lineValue = resolveLineValue(market, marketType, outcomeName)
 
-          const price = gammaOutcomePrice(market, i)
-          if (price == null) continue
+          const tokenId = tokenIds[i]
+          const top = tokenId != null ? askByToken[String(tokenId)] : null
+          if (!top) continue
 
-          const oddsAmerican = sharePriceToAmerican(price)
+          const oddsAmerican = sharePriceToAmerican(top.price)
           if (oddsAmerican == null) continue
 
           const dedupeKey = `${eventId}|${market.id || market.slug}|${outcomeName}|${lineValue ?? ''}`
@@ -441,8 +471,10 @@ export class PolymarketAdapter extends BaseAdapter {
             line_value: lineValue,
             sportsbook,
             odds_american: oddsAmerican,
-            odds_decimal: sharePriceToDecimal(price),
-            share_price: Number(price),
+            odds_decimal: sharePriceToDecimal(top.price),
+            share_price: Number(top.price),
+            ask_size: top.size,
+            max_stake_usd: top.max_stake_usd,
             commence_time: commenceTime,
             bookmaker_link: eventLink,
             is_live: true
@@ -468,7 +500,9 @@ export class PolymarketAdapter extends BaseAdapter {
 
     try {
       const events = await this.fetchLiveEvents()
-      const entries = this.buildEntries(events, { sportsbook, baseUrl })
+      const tokenIds = tradableTokenIds(events, getPolymarketMarketTypes(this.config))
+      const askByToken = await this.fetchBestAskByToken(tokenIds)
+      const entries = this.buildEntries(events, { sportsbook, baseUrl, askByToken })
 
       if (shouldDebug && fromFetchOnce) {
         const debugPath = path.join(process.cwd(), 'debug-polymarket-response.json')

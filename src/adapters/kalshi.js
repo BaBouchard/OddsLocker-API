@@ -77,30 +77,31 @@ export function parseEventTeams(title) {
   return { away: away || null, home: home || null }
 }
 
-/** Best ask to buy Yes (price + contracts available at ask). */
-export function extractTopYesAsk(market) {
-  const price = Number(market?.yes_ask_dollars)
-  const size = market?.yes_ask_size_fp != null ? Number(market.yes_ask_size_fp) : null
-  if (!price || price <= 0 || price >= 1) return null
-  const askSize = size != null && !Number.isNaN(size) && size > 0 ? size : null
+/** Ignore a one-lot or dust ask. It is not a price you can bet. */
+const MIN_ASK_SHARES = 10
+
+function buyableAsk(price, bid, size) {
+  const ask = Number(price)
+  const bidPrice = Number(bid)
+  const shares = Number(size)
+  if (!ask || ask <= 0 || ask >= 1) return null
+  if (bidPrice > 0 && bidPrice < 1 && bidPrice > ask) return null
+  if (!Number.isFinite(shares) || shares < MIN_ASK_SHARES) return null
   return {
-    price,
-    size: askSize,
-    max_stake_usd: askSize != null ? price * askSize : null
+    price: ask,
+    size: shares,
+    max_stake_usd: ask * shares
   }
 }
 
-/** Best ask to buy No — Kalshi lists no_ask; reciprocal size at that level ≈ yes_bid_size. */
+/** Best ask to buy Yes, with size sitting on that ask. */
+export function extractTopYesAsk(market) {
+  return buyableAsk(market?.yes_ask_dollars, market?.yes_bid_dollars, market?.yes_ask_size_fp ?? market?.yes_ask_size)
+}
+
+/** Best ask to buy No, with size sitting on that ask. */
 export function extractTopNoAsk(market) {
-  const price = Number(market?.no_ask_dollars)
-  const size = market?.yes_bid_size_fp != null ? Number(market.yes_bid_size_fp) : null
-  if (!price || price <= 0 || price >= 1) return null
-  const askSize = size != null && !Number.isNaN(size) && size > 0 ? size : null
-  return {
-    price,
-    size: askSize,
-    max_stake_usd: askSize != null ? price * askSize : null
-  }
+  return buyableAsk(market?.no_ask_dollars, market?.no_bid_dollars, market?.no_ask_size_fp ?? market?.no_ask_size)
 }
 
 function parseSpreadLine(market) {
