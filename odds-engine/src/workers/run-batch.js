@@ -28,6 +28,7 @@ export async function runChannelBatch({ batch, useProxy = false }) {
 
   const entries = []
   const errors = []
+  const timings = []
   let leagueWatcher = null
   let proxyFailed = false
   let proxyError = ''
@@ -35,17 +36,23 @@ export async function runChannelBatch({ batch, useProxy = false }) {
   const runBooks = async () => {
     const settled = await Promise.all(
       toRun.map(async (bookId) => {
+        const started = Date.now()
         try {
           const wrapped = await getAdapter(bookId)
-          if (!wrapped) return { bookId, error: 'Adapter not available' }
+          if (!wrapped) return { bookId, error: 'Adapter not available', ms: Date.now() - started }
           const { entries: bookEntries, meta } = await wrapped.fetchOnce()
-          return { bookId, entries: bookEntries, meta }
+          return { bookId, entries: bookEntries, meta, ms: Date.now() - started }
         } catch (e) {
-          return { bookId, error: e.message || String(e) }
+          return { bookId, error: e.message || String(e), ms: Date.now() - started }
         }
       })
     )
     for (const row of settled) {
+      timings.push({
+        book: row.bookId,
+        ms: row.ms || 0,
+        entries: Array.isArray(row.entries) ? row.entries.length : 0
+      })
       if (row.error) {
         errors.push({ book: row.bookId, error: row.error })
         if (/403|407|ECONNREFUSED|ETIMEDOUT|proxy|tunnel|CONNECT/i.test(row.error)) {
@@ -77,6 +84,7 @@ export async function runChannelBatch({ batch, useProxy = false }) {
     errors,
     skipped,
     proxyId: proxy ? proxy.id : null,
-    proxyFailed
+    proxyFailed,
+    timings
   }
 }

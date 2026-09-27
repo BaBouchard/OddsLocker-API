@@ -173,6 +173,26 @@ export function resolveLineValue(market, marketType, outcomeName) {
   return parseLineValue(market, marketType)
 }
 
+/**
+ * Executable share price for a 2-way market from the catalog quote.
+ * Outcome 0 is the posted best ask. Outcome 1 is the other side's ask,
+ * which is the complement of the best bid. Matches the order book within a cent
+ * and avoids a second round trip per snapshot.
+ */
+export function gammaOutcomePrice(market, outcomeIndex) {
+  if (outcomeIndex === 0) {
+    const ask = Number(market?.bestAsk)
+    if (ask > 0 && ask < 1) return ask
+    return null
+  }
+  if (outcomeIndex === 1) {
+    const bid = Number(market?.bestBid)
+    if (bid > 0 && bid < 1) return Math.round((1 - bid) * 10000) / 10000
+    return null
+  }
+  return null
+}
+
 /** Top-of-book ask: executable buy price + share size at that price. */
 export function extractTopAsk(book) {
   if (!book?.asks?.length) return null
@@ -271,17 +291,28 @@ export class PolymarketAdapter extends BaseAdapter {
       return Array.isArray(batch) ? batch : []
     }
 
-    const first = await fetchPage(0)
-    if (first.length === 0 || first.length < pageLimit || maxPages < 2) return first
-
-    const rest = await Promise.all(
-      Array.from({ length: maxPages - 1 }, (_, i) => fetchPage(i + 1).catch(() => []))
-    )
-    const all = [...first]
-    for (const batch of rest) {
-      if (!batch.length) break
-      all.push(...batch)
-      if (batch.length < pageLimit) break
+    // A few pages at once. Waiting for page 0 before the rest adds a full round trip,
+    // and page 0 is the heavy one. Stop as soon as a page comes back short.
+    const waveSize = 3
+    const all = []
+    for (let start = 0; start < maxPages; start += waveSize) {
+      const count = Math.min(waveSize, maxPages - start)
+      const pages = await Promise.all(
+        Array.from({ length: count }, (_, i) => fetchPage(start + i))
+      )
+      let short = false
+      for (const batch of pages) {
+        if (!batch.length) {
+          short = true
+          break
+        }
+        all.push(...batch)
+        if (batch.length < pageLimit) {
+          short = true
+          break
+        }
+      }
+      if (short) break
     }
     return all
   }
@@ -333,7 +364,7 @@ export class PolymarketAdapter extends BaseAdapter {
     return askByToken
   }
 
-  buildEntries(events, askByToken, opts = {}) {
+  buildEntries(events, opts = {}) {
     const { sportsbook, baseUrl } = opts
     const allowedTypes = new Set(getPolymarketMarketTypes(this.config))
     const entries = []
@@ -374,10 +405,8 @@ export class PolymarketAdapter extends BaseAdapter {
 
           const lineValue = resolveLineValue(market, marketType, outcomeName)
 
-          const tokenId = String(tokenIds[i])
-          const topAsk = askByToken[tokenId]
-          if (!topAsk?.price) continue
-          const price = topAsk.price
+          const price = gammaOutcomePrice(market, i)
+          if (price == null) continue
 
           const oddsAmerican = sharePriceToAmerican(price)
           if (oddsAmerican == null) continue
@@ -399,8 +428,6 @@ export class PolymarketAdapter extends BaseAdapter {
             odds_american: oddsAmerican,
             odds_decimal: sharePriceToDecimal(price),
             share_price: Number(price),
-            ask_size: topAsk.size,
-            max_stake_usd: topAsk.max_stake_usd,
             commence_time: commenceTime,
             bookmaker_link: eventLink,
             is_live: true
@@ -426,31 +453,12 @@ export class PolymarketAdapter extends BaseAdapter {
 
     try {
       const events = await this.fetchLiveEvents()
-      const tokenSet = new Set()
-      const allowedTypes = new Set(getPolymarketMarketTypes(this.config))
-
-      for (const event of events) {
-        if (event.live !== true) continue
-        for (const market of event.markets || []) {
-          if (!market?.active || market.closed) continue
-          const sportsType = (market.sportsMarketType || '').toLowerCase()
-          if (!allowedTypes.has(sportsType)) continue
-          for (const id of parseJsonArrayField(market.clobTokenIds)) {
-            tokenSet.add(String(id))
-          }
-        }
-      }
-
-      const tokenIds = [...tokenSet]
-      const askByToken = await this.fetchBestAskByToken(tokenIds)
-      const entries = this.buildEntries(events, askByToken, { sportsbook, baseUrl })
+      const entries = this.buildEntries(events, { sportsbook, baseUrl })
 
       if (shouldDebug && fromFetchOnce) {
         const debugPath = path.join(process.cwd(), 'debug-polymarket-response.json')
         fs.writeFileSync(debugPath, JSON.stringify({
           liveEvents: events.length,
-          tokensRequested: tokenIds.length,
-          booksReturned: Object.keys(askByToken).length,
           entries: entries.length,
           sampleEvent: events[0] ? { title: events[0].title, slug: events[0].slug, live: events[0].live } : null,
           sampleEntries: entries.slice(0, 5)
@@ -459,10 +467,10 @@ export class PolymarketAdapter extends BaseAdapter {
       }
 
       if (entries.length === 0) {
-        console.warn('[LiveOdds] Polymarket 0 entries (live events:', events.length, ', tokens:', tokenIds.length, ')')
+        console.warn('[LiveOdds] Polymarket 0 entries (live events:', events.length, ')')
       }
 
-      this._onOdds(entries, { pollRequests: 2, fromFetchOnce: !!fromFetchOnce })
+      this._onOdds(entries, { pollRequests: 1, fromFetchOnce: !!fromFetchOnce })
     } catch (e) {
       console.warn('[LiveOdds] Polymarket fetch error:', e.message)
       if (fromFetchOnce && this._onOdds) {

@@ -126,13 +126,19 @@ export async function runPollSession() {
   }
 
   onSessionComplete?.(getFullSnapshot())
+  const timings = results
+    .flatMap((r) => r.timings || [])
+    .sort((a, b) => b.ms - a.ms)
+    .map((t) => `${t.book} ${t.entries}/${t.ms}ms`)
+    .join(', ')
   console.log(
     '[Engine] Session done:',
     allEntries.length,
     'entries,',
     allErrors.length,
     'errors,',
-    snapshot.durationMs + 'ms'
+    snapshot.durationMs + 'ms',
+    timings ? `(${timings})` : ''
   )
   return { ok: true, snapshot }
 }
