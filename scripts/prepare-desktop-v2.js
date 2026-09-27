@@ -43,7 +43,7 @@ for (const f of fs.readdirSync(adaptersSrc)) {
     fs.copyFileSync(path.join(adaptersSrc, f), path.join(adaptersDst, f))
   }
 }
-for (const f of ['schema.js', 'bovada-league-watcher.js', 'league-watcher-cache.js']) {
+for (const f of ['schema.js', 'fetch-status.js', 'bovada-league-watcher.js', 'league-watcher-cache.js']) {
   const p = path.join(root, 'src', f)
   if (fs.existsSync(p)) fs.copyFileSync(p, path.join(vendorSrc, f))
 }
