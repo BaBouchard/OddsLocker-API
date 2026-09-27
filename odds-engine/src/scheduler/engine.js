@@ -1,8 +1,11 @@
 import { getState, patchState, getFullSnapshot } from '../state/store.js'
 import { acquireProxy, releaseProxy } from '../state/proxies.js'
 import { runChannelBatch } from '../workers/run-batch.js'
-import { installProxiedGlobalFetch, setRequestProxy } from '../workers/proxy-fetch.js'
+import { installProxiedGlobalFetch, setRequestProxy, setFetchDeadline } from '../workers/proxy-fetch.js'
 import { pushWebhook } from './webhook.js'
+
+/** Leave the rest of a 2s cycle for the site to ingest and scan. */
+const SNAPSHOT_BUDGET_MS = Math.max(400, Number(process.env.SNAPSHOT_BUDGET_MS) || 1000)
 
 let timer = null
 let running = false
@@ -79,9 +82,11 @@ export async function runPollSession() {
 
   let results
   try {
+    setFetchDeadline(SNAPSHOT_BUDGET_MS)
     if (useProxy) setRequestProxy({ acquire: acquireProxy, release: releaseProxy })
     results = await Promise.all(assignments.map((a) => runChannelBatch(a)))
   } finally {
+    setFetchDeadline(0)
     setRequestProxy(null)
     running = false
   }

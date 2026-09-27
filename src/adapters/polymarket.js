@@ -299,16 +299,22 @@ export class PolymarketAdapter extends BaseAdapter {
     for (let start = 0; start < maxPages; start += waveSize) {
       const count = Math.min(waveSize, maxPages - start)
       const pages = await Promise.all(
-        Array.from({ length: count }, (_, i) => fetchPage(start + i))
+        Array.from({ length: count }, (_, i) =>
+          fetchPage(start + i).then(
+            (batch) => ({ batch }),
+            () => ({ batch: null })
+          )
+        )
       )
       let short = false
-      for (const batch of pages) {
-        if (!batch.length) {
+      for (const page of pages) {
+        if (!page.batch) continue
+        if (!page.batch.length) {
           short = true
           break
         }
-        all.push(...batch)
-        if (batch.length < pageLimit) {
+        all.push(...page.batch)
+        if (page.batch.length < pageLimit) {
           short = true
           break
         }
