@@ -2,7 +2,7 @@ import { getState, patchState, getFullSnapshot } from '../state/store.js'
 import { acquireProxy, releaseProxy } from '../state/proxies.js'
 import { runChannelBatch } from '../workers/run-batch.js'
 import { installProxiedGlobalFetch, setRequestProxy } from '../workers/proxy-fetch.js'
-import { pushWebhook } from './webhook.js'
+import { deliverSnapshot } from './webhook.js'
 
 let timer = null
 let running = false
@@ -126,7 +126,9 @@ export async function runPollSession() {
   })
 
   if (getState().fleet.webhookEnabled) {
-    pushWebhook(snapshot)
+    await deliverSnapshot(snapshot, leagueWatcher)
+  } else {
+    console.warn('[Engine] Webhook is off, so this batch stayed on this machine.')
   }
 
   onSessionComplete?.(getFullSnapshot())

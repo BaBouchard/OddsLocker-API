@@ -237,7 +237,14 @@ startScheduler()
 httpServer.listen(PORT, () => {
   console.log(`[OddsLocker Engine] http://localhost:${PORT}`)
   console.log(`[OddsLocker Engine] WS ws://localhost:${PORT}/ws`)
-  console.log('[OddsLocker Engine] Legacy VPS/terminal hub is NOT used — this package is standalone.')
+  const terminalUrl = String(process.env.TERMINAL_URL || '').trim()
+  if (terminalUrl) {
+    let terminalHost = terminalUrl
+    try { terminalHost = new URL(terminalUrl.replace(/^ws/i, 'http')).host } catch { /* keep raw */ }
+    console.log('[OddsLocker Engine] Finished batches post to the terminal →', terminalHost)
+  } else {
+    console.log('[OddsLocker Engine] TERMINAL_URL is not set. Set it, or WEBHOOK_URL, or finished batches stay on this machine.')
+  }
 })
 
 process.on('SIGINT', () => {

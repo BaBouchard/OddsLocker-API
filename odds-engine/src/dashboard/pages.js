@@ -254,7 +254,7 @@ function settingsHtml() {
     <button type="button" class="btn accent" id="btnFetchOnce">Fetch odds once</button>
   </div>
 </div>
-<p style="font-size:.78rem;color:var(--muted)">Webhook URL is <code>WEBHOOK_URL</code> in <code>.env</code>. Auto poll only runs while Engine live is on.</p>`
+<p style="font-size:.78rem;color:var(--muted)">Webhook posts each finished batch to <code>TERMINAL_URL</code> and, if set, <code>WEBHOOK_URL</code>. Auto poll only runs while Engine live is on.</p>`
 }
 
 function clientScript(pageId) {
