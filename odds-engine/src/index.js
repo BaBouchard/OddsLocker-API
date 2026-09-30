@@ -119,7 +119,8 @@ app.post('/api/proxies', requireAuth, (req, res) => {
   const result = addProxiesFromText(req.body?.text || req.body?.proxies || '')
   const added = typeof result === 'number' ? result : result.added
   const rejected = typeof result === 'number' ? [] : result.rejected
-  res.json({ ...getPublicState(), added, rejected })
+  const skipped = typeof result === 'number' ? 0 : result.skipped
+  res.json({ ...getPublicState(), added, rejected, skipped })
 })
 
 app.delete('/api/proxies/:id', requireAuth, (req, res) => {

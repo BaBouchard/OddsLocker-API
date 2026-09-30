@@ -393,6 +393,35 @@ function bind(){
     state=await api('/api/batches',{method:'PUT',body:JSON.stringify({batches:collectBatches()})});
     renderBatches();
   });
+  const proxyBox=document.getElementById('proxyText');
+  proxyBox?.addEventListener('paste', (e)=>{
+    const cd=e.clipboardData;
+    if(!cd) return;
+    let text=cd.getData('text/plain')||'';
+    const plainLines=text.split(/\\r\\n|\\n|\\r|\\u2028|\\u2029/).map(l=>l.trim()).filter(Boolean);
+    const html=cd.getData('text/html')||'';
+    if(plainLines.length<2 && html){
+      const decoded=html
+        .replace(/<br\\s*\\/?>/gi,'\\n')
+        .replace(/<\\/tr>/gi,'\\n')
+        .replace(/<\\/p>/gi,'\\n')
+        .replace(/<\\/div>/gi,'\\n')
+        .replace(/<[^>]+>/g,'')
+        .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+      const htmlLines=decoded.split(/\\r\\n|\\n|\\r/).map(l=>l.trim()).filter(Boolean);
+      if(htmlLines.length>plainLines.length) text=htmlLines.join('\\n');
+      else text=plainLines.join('\\n');
+    } else {
+      text=plainLines.join('\\n');
+    }
+    if(!text.trim()) return;
+    e.preventDefault();
+    const start=proxyBox.selectionStart??proxyBox.value.length;
+    const end=proxyBox.selectionEnd??start;
+    proxyBox.value=proxyBox.value.slice(0,start)+text+proxyBox.value.slice(end);
+    const caret=start+text.length;
+    proxyBox.selectionStart=proxyBox.selectionEnd=caret;
+  });
   document.getElementById('btnAddProxies')?.addEventListener('click', async()=>{
     const box=document.getElementById('proxyText');
     const msg=document.getElementById('proxyMsg');
@@ -408,7 +437,6 @@ function bind(){
     if(msg){
       if(!text.trim()) msg.textContent='Type or paste at least one proxy.';
       else if(rejected.length) msg.textContent='Could not read ' + rejected.length + ' line' + (rejected.length===1?'':'s') + '. Those lines were left in the box.';
-      else if(!added) msg.textContent='Already in the pool.';
       else msg.textContent='Added ' + added + '.';
     }
     renderProxies();

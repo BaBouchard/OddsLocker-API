@@ -11,8 +11,16 @@ function asProxyUrl(url) {
   }
 }
 
+/** One proxy per line. Semicolons stay in the line because providers put them in the login. */
+export function linesFromProxyText(text) {
+  return String(text || '')
+    .split(/\r\n|\n|\r|\u2028|\u2029/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
 /** Accept URL, user:pass@host:port, host:port, and host:port:user:pass. */
-function normalizeProxyUrl(line) {
+export function normalizeProxyUrl(line) {
   const raw = String(line || '').trim()
   if (!raw) return null
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return asProxyUrl(raw)
@@ -32,21 +40,16 @@ function normalizeProxyUrl(line) {
 }
 
 export function addProxiesFromText(text) {
-  const lines = String(text || '')
-    .split(/[\n,;]+/)
-    .map((l) => l.trim())
-    .filter(Boolean)
+  const lines = linesFromProxyText(text)
   const added = []
   const rejected = []
   patchState((s) => {
-    const existing = new Set(s.proxies.map((p) => p.url))
     for (const line of lines) {
       const url = normalizeProxyUrl(line)
       if (!url) {
         rejected.push(line)
         continue
       }
-      if (existing.has(url)) continue
       const row = {
         id: 'px_' + crypto.randomBytes(6).toString('hex'),
         url,
@@ -57,11 +60,10 @@ export function addProxiesFromText(text) {
         lastUsedAt: 0
       }
       s.proxies.push(row)
-      existing.add(url)
       added.push(row.id)
     }
   })
-  return { added: added.length, rejected }
+  return { added: added.length, rejected, skipped: 0 }
 }
 
 export function removeProxy(id) {

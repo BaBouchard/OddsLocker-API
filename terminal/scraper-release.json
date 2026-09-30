@@ -1,6 +1,6 @@
 {
-  "version": "2.0.13",
-  "filename": "OddsLocker-Scraper-Setup-2.0.13.exe",
+  "version": "2.0.14",
+  "filename": "OddsLocker-Scraper-Setup-2.0.14.exe",
   "githubRepo": "BaBouchard/OddsLocker-API",
   "githubReleaseTagPrefix": "scraper-v",
   "productName": "OddsLocker Scraper"
